@@ -1,0 +1,4 @@
+ALTER TABLE centry.social_users
+  ADD COLUMN IF NOT EXISTS personalization JSONB,
+  ADD COLUMN IF NOT EXISTS default_context_management JSONB,
+  ADD COLUMN IF NOT EXISTS default_summarization JSONB;
