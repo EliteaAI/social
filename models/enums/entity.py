@@ -13,4 +13,5 @@ class EntityType(StrEnum):
     application = 'application'
     toolkit = 'toolkit'
     configuration = 'configuration'
+    conversation = 'conversation'
 
