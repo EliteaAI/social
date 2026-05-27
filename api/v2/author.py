@@ -2,13 +2,17 @@ from queue import Empty
 
 from flask import request, g, jsonify
 from pylon.core.tools import log
-from tools import api_tools, auth, constants as c
+from tools import api_tools, auth, constants as c, register_openapi
 
 from ...models.users import User
 from ...models.pd.users import UserUpdateModel
 
 
 class ProjectApi(api_tools.APIModeHandler):
+    @register_openapi(
+        name="Get Current Author",
+        description="Get current authenticated user profile, including social data (avatar, description, personalization).",
+    )
     @api_tools.endpoint_metrics
     def get(self, **kwargs):
         user = self.module.context.rpc_manager.timeout(2).auth_main_current_user(g.auth)
@@ -50,6 +54,11 @@ class API(api_tools.APIBase):
         'default': ProjectApi,
     }
 
+    @register_openapi(
+        name="Update Current Author",
+        description="Update current authenticated user profile fields (description, personalization, context management, summarization).",
+        request_body=UserUpdateModel,
+    )
     @api_tools.endpoint_metrics
     def put(self, **kwargs):
         u = self.module.context.rpc_manager.timeout(2).auth_main_current_user(g.auth)

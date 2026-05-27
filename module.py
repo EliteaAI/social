@@ -35,6 +35,28 @@ class Module(module.ModuleModel):
             self.avatar_path = Path(self.descriptor.config["avatar_path"])
         else:
             self.avatar_path = Path(__file__).parent.joinpath("data", "avatar")
+        #
+        self._register_openapi()
+
+    def _register_openapi(self):
+        """Register API endpoints with OpenAPI registry."""
+        try:
+            from tools import openapi_registry  # pylint: disable=E0401,C0415
+            from .api import v2 as api_v2
+            openapi_registry.register_plugin(
+                plugin_name="social",
+                version=self.descriptor.metadata.get("version", "1.0.0"),
+                description="Social features — likes, pins, feedbacks, author profiles.",
+                tags=[
+                    {
+                        "name": "social",
+                        "description": "Social features — likes, pins, feedbacks, and author profiles.",
+                    },
+                ],
+                api_module=api_v2,
+            )
+        except Exception as e:  # pylint: disable=W0703
+            log.warning("Failed to register OpenAPI for social plugin: %s", e)
 
     def init(self):
         """ Init module """

@@ -1,9 +1,17 @@
 from flask import jsonify
 from pylon.core.tools import log
-from tools import api_tools, auth, config as c
+from tools import api_tools, auth, config as c, register_openapi
 
 
 class ProjectApi(api_tools.APIModeHandler):
+    @register_openapi(
+        name="List Authors",
+        description="List all authors (users) for a project.",
+        parameters=[
+            {"name": "project_id", "in": "path", "schema": {"type": "integer"},
+             "description": "Project identifier."},
+        ],
+    )
     @auth.decorators.check_api({
         "permissions": ["models.social.authors.get"],
         "recommended_roles": {

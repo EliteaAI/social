@@ -1,5 +1,5 @@
 from flask import request
-from tools import api_tools, config as c, auth, db
+from tools import api_tools, config as c, auth, db, register_openapi
 from pydantic.v1 import ValidationError
 from ...models.feedbacks import Feedback
 from ...models.pd.feedbacks import FeedbackModel
@@ -9,6 +9,14 @@ from pylon.core.tools import log
 
 
 class ProjectAPI(api_tools.APIModeHandler):
+    @register_openapi(
+        name="List Feedbacks",
+        description="List all feedbacks, optionally filtered by query parameters.",
+        parameters=[
+            {"name": "project_id", "in": "path", "schema": {"type": "integer"},
+             "description": "Project identifier (optional)."},
+        ],
+    )
     @auth.decorators.check_api({
         "permissions": ["models.social.feedbacks.list"],
         "recommended_roles": {
@@ -36,6 +44,15 @@ class API(api_tools.APIBase):
         c.DEFAULT_MODE: ProjectAPI,
     }
 
+    @register_openapi(
+        name="Create Feedback",
+        description="Submit a new feedback entry.",
+        parameters=[
+            {"name": "project_id", "in": "path", "schema": {"type": "integer"},
+             "description": "Project identifier (optional)."},
+        ],
+        request_body=FeedbackModel,
+    )
     @auth.decorators.check_api({
         "permissions": ["models.social.feedbacks.create"],
         "recommended_roles": {

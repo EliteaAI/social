@@ -3,11 +3,15 @@ from uuid import uuid4
 from pathlib import Path
 
 from flask import request, url_for
-from tools import config as c, api_tools, auth
+from tools import config as c, api_tools, auth, register_openapi
 
 
 class AdminApi(api_tools.APIModeHandler):
 
+    @register_openapi(
+        name="List Avatars",
+        description="List all available avatar images.",
+    )
     @auth.decorators.check_api({
         "permissions": ["models.social.avatar.get"],
         "recommended_roles": {
@@ -21,6 +25,16 @@ class AdminApi(api_tools.APIModeHandler):
             } for i in self.module.avatar_path.iterdir()
         ], 200
 
+    @register_openapi(
+        name="Upload Avatar",
+        description="Upload a new avatar image (multipart/form-data). Accepts 'file' field plus optional 'width' and 'height' form fields.",
+        parameters=[
+            {"name": "width", "in": "query", "schema": {"type": "integer", "default": 64},
+             "description": "Target width in pixels for the saved image."},
+            {"name": "height", "in": "query", "schema": {"type": "integer", "default": 64},
+             "description": "Target height in pixels for the saved image."},
+        ],
+    )
     @auth.decorators.check_api({
         "permissions": ["models.social.avatar.post"],
         "recommended_roles": {
@@ -43,6 +57,14 @@ class AdminApi(api_tools.APIModeHandler):
         else:
             return result['error'], 400
 
+    @register_openapi(
+        name="Delete Avatar",
+        description="Delete an avatar image by file name.",
+        parameters=[
+            {"name": "file_name", "in": "path", "schema": {"type": "string"},
+             "description": "Avatar file name to delete."},
+        ],
+    )
     @auth.decorators.check_api({
         "permissions": ["models.social.avatar.delete"],
         "recommended_roles": {
