@@ -4,10 +4,20 @@ from pydantic.v1 import ValidationError
 from pylon.core.tools import log
 from ...models.pd.feedbacks import FeedbackUpdateModel
 
-from tools import api_tools, config as c, auth
+from tools import api_tools, config as c, auth, register_openapi
 
 
 class ProjectApi(api_tools.APIModeHandler):
+    @register_openapi(
+        name="Get Feedback",
+        description="Get a single feedback entry by id.",
+        parameters=[
+            {"name": "project_id", "in": "path", "schema": {"type": "integer"},
+             "description": "Project identifier."},
+            {"name": "feedback_id", "in": "path", "schema": {"type": "integer"},
+             "description": "Feedback identifier."},
+        ],
+    )
     @auth.decorators.check_api({
         "permissions": ["models.social.feedback.details"],
         "recommended_roles": {
@@ -21,6 +31,16 @@ class ProjectApi(api_tools.APIModeHandler):
         result['result'] = result['result'].to_json()
         return result, 200
 
+    @register_openapi(
+        name="Delete Feedback",
+        description="Delete a feedback entry by id.",
+        parameters=[
+            {"name": "project_id", "in": "path", "schema": {"type": "integer"},
+             "description": "Project identifier."},
+            {"name": "feedback_id", "in": "path", "schema": {"type": "integer"},
+             "description": "Feedback identifier."},
+        ],
+    )
     @auth.decorators.check_api({
         "permissions": ["models.social.feedback.delete"],
         "recommended_roles": {
@@ -31,6 +51,17 @@ class ProjectApi(api_tools.APIModeHandler):
         result = self.module.delete_feedback(feedback_id)
         return "", 204 if result['ok'] else 404
 
+    @register_openapi(
+        name="Update Feedback",
+        description="Update rating or description of an existing feedback.",
+        parameters=[
+            {"name": "project_id", "in": "path", "schema": {"type": "integer"},
+             "description": "Project identifier."},
+            {"name": "feedback_id", "in": "path", "schema": {"type": "integer"},
+             "description": "Feedback identifier."},
+        ],
+        request_body=FeedbackUpdateModel,
+    )
     @auth.decorators.check_api({
         "permissions": ["models.social.feedback.update"],
         "recommended_roles": {
