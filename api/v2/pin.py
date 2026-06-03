@@ -17,6 +17,7 @@ class PromptLibAPI(api_tools.APIModeHandler):
         name="Pin Entity",
         description="Pin an entity to the user's pinned list.",
         parameters=_PATH_PARAMS,
+        available_to_users=True,
     )
     @api_tools.endpoint_metrics
     def post(self, project_id: int, entity: str, entity_id: int):
@@ -31,6 +32,7 @@ class PromptLibAPI(api_tools.APIModeHandler):
         name="Unpin Entity",
         description="Remove an entity from the user's pinned list.",
         parameters=_PATH_PARAMS,
+        available_to_users=True,
     )
     @api_tools.endpoint_metrics
     def delete(self, project_id: int, entity: str, entity_id: int):

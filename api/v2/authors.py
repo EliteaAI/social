@@ -11,6 +11,7 @@ class ProjectApi(api_tools.APIModeHandler):
             {"name": "project_id", "in": "path", "schema": {"type": "integer"},
              "description": "Project identifier."},
         ],
+        available_to_users=True,
     )
     @auth.decorators.check_api({
         "permissions": ["models.social.authors.get"],

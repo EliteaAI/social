@@ -11,6 +11,7 @@ class AdminApi(api_tools.APIModeHandler):
     @register_openapi(
         name="List Avatars",
         description="List all available avatar images.",
+        available_to_users=True,
     )
     @auth.decorators.check_api({
         "permissions": ["models.social.avatar.get"],
@@ -34,6 +35,7 @@ class AdminApi(api_tools.APIModeHandler):
             {"name": "height", "in": "query", "schema": {"type": "integer", "default": 64},
              "description": "Target height in pixels for the saved image."},
         ],
+        available_to_users=True,
     )
     @auth.decorators.check_api({
         "permissions": ["models.social.avatar.post"],
@@ -64,6 +66,7 @@ class AdminApi(api_tools.APIModeHandler):
             {"name": "file_name", "in": "path", "schema": {"type": "string"},
              "description": "Avatar file name to delete."},
         ],
+        available_to_users=True,
     )
     @auth.decorators.check_api({
         "permissions": ["models.social.avatar.delete"],

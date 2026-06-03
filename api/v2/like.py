@@ -20,6 +20,7 @@ class PromptLibAPI(api_tools.APIModeHandler):
         name="Like Entity",
         description="Like an entity (prompt, application, datasource, etc.).",
         parameters=_PATH_PARAMS,
+        available_to_users=True,
     )
     @api_tools.endpoint_metrics
     def post(self, project_id: int, entity: str, entity_id: int):
@@ -35,6 +36,7 @@ class PromptLibAPI(api_tools.APIModeHandler):
         name="Dislike Entity",
         description="Remove a like from an entity.",
         parameters=_PATH_PARAMS,
+        available_to_users=True,
     )
     @api_tools.endpoint_metrics
     def delete(self, project_id: int, entity: str, entity_id: int):

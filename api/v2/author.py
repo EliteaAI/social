@@ -12,6 +12,7 @@ class ProjectApi(api_tools.APIModeHandler):
     @register_openapi(
         name="Get Current Author",
         description="Get current authenticated user profile, including social data (avatar, description, personalization).",
+        available_to_users=True,
     )
     @api_tools.endpoint_metrics
     def get(self, **kwargs):
@@ -58,6 +59,7 @@ class API(api_tools.APIBase):
         name="Update Current Author",
         description="Update current authenticated user profile fields (description, personalization, context management, summarization).",
         request_body=UserUpdateModel,
+        available_to_users=True,
     )
     @api_tools.endpoint_metrics
     def put(self, **kwargs):

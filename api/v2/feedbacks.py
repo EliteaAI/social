@@ -16,6 +16,7 @@ class ProjectAPI(api_tools.APIModeHandler):
             {"name": "project_id", "in": "path", "schema": {"type": "integer"},
              "description": "Project identifier (optional)."},
         ],
+        available_to_users=True,
     )
     @auth.decorators.check_api({
         "permissions": ["models.social.feedbacks.list"],
@@ -52,6 +53,7 @@ class API(api_tools.APIBase):
              "description": "Project identifier (optional)."},
         ],
         request_body=FeedbackModel,
+        available_to_users=True,
     )
     @auth.decorators.check_api({
         "permissions": ["models.social.feedbacks.create"],

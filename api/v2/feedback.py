@@ -17,6 +17,7 @@ class ProjectApi(api_tools.APIModeHandler):
             {"name": "feedback_id", "in": "path", "schema": {"type": "integer"},
              "description": "Feedback identifier."},
         ],
+        available_to_users=True,
     )
     @auth.decorators.check_api({
         "permissions": ["models.social.feedback.details"],
@@ -40,6 +41,7 @@ class ProjectApi(api_tools.APIModeHandler):
             {"name": "feedback_id", "in": "path", "schema": {"type": "integer"},
              "description": "Feedback identifier."},
         ],
+        available_to_users=True,
     )
     @auth.decorators.check_api({
         "permissions": ["models.social.feedback.delete"],
@@ -61,6 +63,7 @@ class ProjectApi(api_tools.APIModeHandler):
              "description": "Feedback identifier."},
         ],
         request_body=FeedbackUpdateModel,
+        available_to_users=True,
     )
     @auth.decorators.check_api({
         "permissions": ["models.social.feedback.update"],
