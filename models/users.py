@@ -24,3 +24,16 @@ class User(db_tools.AbstractBaseMixin, db.Base):
     # Default summarization settings for new conversations
     default_summarization: Mapped[Optional[dict]] = mapped_column(JSONB, nullable=True)
 
+    def to_json(self, exclude_fields: tuple = ()) -> dict:
+        result = {
+            "id": self.id,
+            "user_id": self.user_id,
+            "avatar": self.avatar,
+            "title": self.title,
+            "description": self.description,
+            "personalization": self.personalization,
+            "default_context_management": self.default_context_management,
+            "default_summarization": self.default_summarization,
+        }
+        return {k: v for k, v in result.items() if k not in exclude_fields}
+
