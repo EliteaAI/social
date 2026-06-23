@@ -9,8 +9,8 @@ from tools import config as c, api_tools, auth, register_openapi
 class AdminApi(api_tools.APIModeHandler):
 
     @register_openapi(
-        name="List Avatars",
-        description="List all available avatar images.",
+        name="Get Avatar",
+        description="Get an avatar image by file name. Returns the image URL for the specified file.",
         available_to_users=True,
     )
     @auth.decorators.check_api({
@@ -29,12 +29,34 @@ class AdminApi(api_tools.APIModeHandler):
     @register_openapi(
         name="Upload Avatar",
         description="Upload a new avatar image (multipart/form-data). Accepts 'file' field plus optional 'width' and 'height' form fields.",
-        parameters=[
-            {"name": "width", "in": "query", "schema": {"type": "integer", "default": 64},
-             "description": "Target width in pixels for the saved image."},
-            {"name": "height", "in": "query", "schema": {"type": "integer", "default": 64},
-             "description": "Target height in pixels for the saved image."},
-        ],
+        request_body={
+            "required": True,
+            "content": {
+                "multipart/form-data": {
+                    "schema": {
+                        "type": "object",
+                        "properties": {
+                            "file": {
+                                "type": "string",
+                                "format": "binary",
+                                "description": "Avatar image file to upload.",
+                            },
+                            "width": {
+                                "type": "integer",
+                                "default": 64,
+                                "description": "Target width in pixels for the saved image.",
+                            },
+                            "height": {
+                                "type": "integer",
+                                "default": 64,
+                                "description": "Target height in pixels for the saved image.",
+                            },
+                        },
+                        "required": ["file"],
+                    }
+                }
+            },
+        },
         available_to_users=True,
     )
     @auth.decorators.check_api({
