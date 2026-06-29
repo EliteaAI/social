@@ -9,8 +9,8 @@ from tools import config as c, api_tools, auth, register_openapi
 class AdminApi(api_tools.APIModeHandler):
 
     @register_openapi(
-        name="Get Avatar",
-        description="Get an avatar image by file name. Returns the image URL for the specified file.",
+        name="List Avatars",
+        description="List all available avatar images with their URLs.",
         available_to_users=True,
     )
     @auth.decorators.check_api({
