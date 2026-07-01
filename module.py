@@ -21,8 +21,6 @@ from pathlib import Path
 from pylon.core.tools import log  # pylint: disable=E0611,E0401
 from pylon.core.tools import module
 
-from tools import theme
-
 
 class Module(module.ModuleModel):
     """ Task module """
