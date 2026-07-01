@@ -26,7 +26,8 @@ class ProjectApi(api_tools.APIModeHandler):
 
         social_user: User = User.query.filter(User.user_id == user['id']).first()
         if social_user:
-            user['description'] = social_user.description
+            # In terms of https://github.com/EliteaAI/elitea_issues/issues/5394, description is set to None
+            user['description'] = None
             user['avatar'] = social_user.avatar
             user['title'] = social_user.title
             user['personalization'] = social_user.personalization
