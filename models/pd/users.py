@@ -7,6 +7,7 @@ from pylon.core.tools import log
 class PersonalizationModel(BaseModel):
     persona: Optional[str] = None
     default_instructions: Optional[str] = None
+    default_internal_mcp_enabled: Optional[bool] = None
 
     class Config:
         orm_mode = True
