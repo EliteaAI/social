@@ -1,4 +1,4 @@
-from typing import Optional
+from typing import Dict, Optional
 from pydantic.v1 import BaseModel
 
 from pylon.core.tools import log
@@ -6,7 +6,12 @@ from pylon.core.tools import log
 
 class PersonalizationModel(BaseModel):
     persona: Optional[str] = None
+    # DEPRECATED server-owned mirror of personality_instructions[persona]; kept for back-compat
+    # with consumers still reading the flat field. Removed once all readers use the dict.
     default_instructions: Optional[str] = None
+    # Per-persona instructions keyed by persona value (generic/qa/nerdy/...). Left as None (not {})
+    # so the API can detect "client did not send this key" via .dict(exclude_unset=True).
+    personality_instructions: Optional[Dict[str, str]] = None
     default_internal_mcp_enabled: Optional[bool] = None
 
     class Config:

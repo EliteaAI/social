@@ -2,3 +2,19 @@ ALTER TABLE centry.social_users
   ADD COLUMN IF NOT EXISTS personalization JSONB,
   ADD COLUMN IF NOT EXISTS default_context_management JSONB,
   ADD COLUMN IF NOT EXISTS default_summarization JSONB;
+
+-- #5392: backfill per-persona instructions. Seed personality_instructions with the row's
+-- existing default_instructions under the row's CURRENT persona (not literal 'generic', which
+-- would blank the visible textarea for anyone not on generic). Idempotent: only touches rows
+-- that already have a personalization object and no personality_instructions key yet.
+UPDATE centry.social_users
+SET personalization = personalization
+    || jsonb_build_object(
+         'personality_instructions',
+         jsonb_build_object(
+           COALESCE(personalization->>'persona', 'generic'),
+           COALESCE(personalization->>'default_instructions', '')
+         )
+       )
+WHERE personalization IS NOT NULL
+  AND NOT (personalization ? 'personality_instructions');
