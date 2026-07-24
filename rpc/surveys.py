@@ -24,12 +24,14 @@ def _resolve_user_email(user_id: int) -> str:
         return None
 
 
-def _upsert_answer_row(session, survey, question, user_id, user_email):
+def _upsert_answer_row(session, survey, question, user_id, user_email=None):
     row = session.query(SurveyAnswer).filter(
         SurveyAnswer.question_id == question.id,
         SurveyAnswer.user_id == user_id,
     ).first()
     if not row:
+        if user_email is None:
+            user_email = _resolve_user_email(user_id)
         row = SurveyAnswer(
             question_id=question.id,
             survey_id=survey.id,
@@ -40,11 +42,10 @@ def _upsert_answer_row(session, survey, question, user_id, user_email):
         )
         session.add(row)
     else:
-        # Refresh denormalized fields (survey/question may have changed)
         row.survey_name = survey.name
         row.question_title = question.title
-        if user_email and not row.user_email:
-            row.user_email = user_email
+        if not row.user_email:
+            row.user_email = user_email or _resolve_user_email(user_id)
     return row
 
 
@@ -118,19 +119,33 @@ class RPC:
                 if value is not None:
                     setattr(survey, field, value)
 
-            # Replace questions when provided
             if data.questions is not None:
-                session.query(SurveyQuestion).filter(
-                    SurveyQuestion.survey_id == survey.id).delete()
+                current_user_id = auth.current_user().get("id")
+                existing = {
+                    q.id: q for q in session.query(SurveyQuestion).filter(
+                        SurveyQuestion.survey_id == survey.id).all()
+                }
+                incoming_ids = {q.id for q in data.questions if q.id}
+                # delete questions not present in the update payload
+                for qid, qrow in existing.items():
+                    if qid not in incoming_ids:
+                        session.delete(qrow)
                 for question in data.questions:
-                    session.add(SurveyQuestion(
-                        survey_id=survey.id,
-                        title=question.title,
-                        question_type=question.question_type,
-                        options=question.options,
-                        position=question.position or 0,
-                        created_by=auth.current_user().get("id"),
-                    ))
+                    if question.id and question.id in existing:
+                        qrow = existing[question.id]
+                        qrow.title = question.title
+                        qrow.question_type = question.question_type
+                        qrow.options = question.options
+                        qrow.position = question.position or 0
+                    else:
+                        session.add(SurveyQuestion(
+                            survey_id=survey.id,
+                            title=question.title,
+                            question_type=question.question_type,
+                            options=question.options,
+                            position=question.position or 0,
+                            created_by=current_user_id,
+                        ))
             session.commit()
             return self.get_survey(survey.id)
 
@@ -140,10 +155,6 @@ class RPC:
             survey = session.query(Survey).get(survey_id)
             if not survey:
                 return {"ok": False, "error": f"Survey with id '{survey_id}' not found"}
-            session.query(SurveyQuestion).filter(
-                SurveyQuestion.survey_id == survey_id).delete()
-            session.query(SurveyAnswer).filter(
-                SurveyAnswer.survey_id == survey_id).delete()
             session.delete(survey)
             session.commit()
             return {"ok": True, "result": "Successfully deleted"}
@@ -181,9 +192,8 @@ class RPC:
                 return {"ok": False, "error": f"Survey with id '{survey_id}' not found"}
             questions = session.query(SurveyQuestion).filter(
                 SurveyQuestion.survey_id == survey_id).all()
-            user_email = _resolve_user_email(user_id)
             for question in questions:
-                row = _upsert_answer_row(session, survey, question, user_id, user_email)
+                row = _upsert_answer_row(session, survey, question, user_id)
                 row.shown = True
             session.commit()
             return {"ok": True, "result": "shown"}
@@ -195,11 +205,9 @@ class RPC:
             if not survey:
                 return {"ok": False, "error": f"Survey with id '{survey_id}' not found"}
             questions = session.query(SurveyQuestion).filter(
-                SurveyQuestion.survey_id == survey_id
-            ).all()
-            user_email = _resolve_user_email(user_id)
+                SurveyQuestion.survey_id == survey_id).all()
             for question in questions:
-                row = _upsert_answer_row(session, survey, question, user_id, user_email)
+                row = _upsert_answer_row(session, survey, question, user_id)
                 row.dismissed = True
             session.commit()
             return {"ok": True, "result": "dismissed"}
