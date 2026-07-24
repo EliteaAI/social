@@ -61,14 +61,70 @@ class Module(module.ModuleModel):
         log.info('Initializing Social Plugin')
         self.avatar_path.mkdir(parents=True, exist_ok=True)
         self.init_db()
+        self._register_permissions()
         self.descriptor.init_all()
+        self._seed_default_survey()
 
     def init_db(self):
         from tools import db
         from .models.likes import Like
         from .models.users import User
         from .models.feedbacks import Feedback
+        from .models.surveys import Survey, SurveyQuestion, SurveyAnswer
         db.get_shared_metadata().create_all(bind=db.engine)
+
+    def _register_permissions(self):
+        from tools import auth, config as c  # pylint: disable=E0401,C0415
+        # Admin: manage survey configuration
+        auth.register_permissions({
+            "permissions": ["models.admin.surveys.manage"],
+            "recommended_roles": {
+                c.ADMINISTRATION_MODE: {"admin": True, "editor": False, "viewer": False},
+            }})
+        # Admin: view survey response reports (Reports menu)
+        auth.register_permissions({
+            "permissions": ["models.admin.surveys.reports.view"],
+            "recommended_roles": {
+                c.ADMINISTRATION_MODE: {"admin": True, "editor": False, "viewer": False},
+            }})
+        # NOTE: end-user survey endpoints (active / response / shown / dismiss) are login-only
+        # (authenticated via the forward-auth proxy, keyed by user_id) and are not project-scoped,
+        # so they use @api_tools.endpoint_metrics without check_api — no extra permission needed.
+
+    def _seed_default_survey(self):
+        """Seed the default 'NPS Elitea' survey once (AC2)."""
+        from tools import db  # pylint: disable=E0401,C0415
+        from .models.surveys import Survey, SurveyQuestion  # pylint: disable=C0415
+        try:
+            with db.with_project_schema_session(None) as session:
+                exists = session.query(Survey).filter(Survey.name == "NPS Elitea").first()
+                if exists:
+                    return
+                survey = Survey(
+                    name="NPS Elitea",
+                    description="Net Promoter Score survey for Elitea (internal note for POs/Admins).",
+                    enabled=False,
+                    dismissible=True,
+                )
+                session.add(survey)
+                session.flush()
+                session.add(SurveyQuestion(
+                    survey_id=survey.id,
+                    title="How likely are you to recommend Elitea to a friend or colleague?",
+                    question_type="slider",
+                    options={
+                        "min": 0,
+                        "max": 10,
+                        "min_label": "Not likely",
+                        "max_label": "Very likely",
+                        "style": "buttons",
+                    },
+                    position=0,
+                ))
+                session.commit()
+                log.info("Seeded default 'NPS Elitea' survey")
+        except Exception as e:  # pylint: disable=W0703
+            log.warning("Failed to seed default NPS survey: %s", e)
 
     def deinit(self):  # pylint: disable=R0201
         """ De-init module """
