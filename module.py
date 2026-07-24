@@ -87,20 +87,9 @@ class Module(module.ModuleModel):
             "recommended_roles": {
                 c.ADMINISTRATION_MODE: {"admin": True, "editor": False, "viewer": False},
             }})
-        # End-user: see the survey widget
-        auth.register_permissions({
-            "permissions": ["models.social.surveys.view"],
-            "recommended_roles": {
-                c.ADMINISTRATION_MODE: {"admin": True, "editor": True, "viewer": True},
-                c.DEFAULT_MODE: {"admin": True, "editor": True, "viewer": True},
-            }})
-        # End-user: submit a survey response
-        auth.register_permissions({
-            "permissions": ["models.social.surveys.submit"],
-            "recommended_roles": {
-                c.ADMINISTRATION_MODE: {"admin": True, "editor": True, "viewer": True},
-                c.DEFAULT_MODE: {"admin": True, "editor": True, "viewer": True},
-            }})
+        # NOTE: end-user survey endpoints (active / response / shown / dismiss) are login-only
+        # (authenticated via the forward-auth proxy, keyed by user_id) and are not project-scoped,
+        # so they use @api_tools.endpoint_metrics without check_api — no extra permission needed.
 
     def _seed_default_survey(self):
         """Seed the default 'NPS Elitea' survey once (AC2)."""

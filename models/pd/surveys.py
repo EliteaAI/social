@@ -1,5 +1,5 @@
 from typing import Optional, List, Any
-from pydantic.v1 import BaseModel
+from pydantic.v1 import BaseModel, validator
 
 
 QUESTION_TYPES = ("open", "radio", "checkbox", "slider")
@@ -11,6 +11,12 @@ class SurveyQuestionModel(BaseModel):
     question_type: str = "open"
     options: Optional[dict]
     position: Optional[int] = 0
+
+    @validator("question_type")
+    def validate_question_type(cls, v):
+        if v not in QUESTION_TYPES:
+            raise ValueError(f"question_type must be one of {list(QUESTION_TYPES)}, got '{v}'")
+        return v
 
     class Config:
         schema_extra = {

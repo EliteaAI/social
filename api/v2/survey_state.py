@@ -18,13 +18,8 @@ class ProjectAPI(api_tools.APIModeHandler):
         ],
         available_to_users=True,
     )
-    @auth.decorators.check_api({
-        "permissions": ["models.social.surveys.view"],
-        "recommended_roles": {
-            c.ADMINISTRATION_MODE: {"admin": True, "editor": True, "viewer": True},
-            c.DEFAULT_MODE: {"admin": True, "editor": True, "viewer": True},
-        }})
-    def post(self, survey_id: int, action: str, project_id: int | None = None, **kwargs):
+    @api_tools.endpoint_metrics
+    def post(self, survey_id: int, action: str, **kwargs):
         user_id = auth.current_user().get("id")
         if action == "shown":
             result = self.module.mark_survey_shown(survey_id, user_id)
@@ -38,7 +33,6 @@ class ProjectAPI(api_tools.APIModeHandler):
 class API(api_tools.APIBase):
     url_params = api_tools.with_modes([
         "<int:survey_id>/<string:action>",
-        "<int:project_id>/<int:survey_id>/<string:action>",
     ])
 
     mode_handlers = {

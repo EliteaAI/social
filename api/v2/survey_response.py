@@ -20,13 +20,8 @@ class ProjectAPI(api_tools.APIModeHandler):
         request_body=SurveyResponseSubmitModel,
         available_to_users=True,
     )
-    @auth.decorators.check_api({
-        "permissions": ["models.social.surveys.submit"],
-        "recommended_roles": {
-            c.ADMINISTRATION_MODE: {"admin": True, "editor": True, "viewer": True},
-            c.DEFAULT_MODE: {"admin": True, "editor": True, "viewer": True},
-        }})
-    def post(self, survey_id: int, project_id: int | None = None, **kwargs):
+    @api_tools.endpoint_metrics
+    def post(self, survey_id: int, **kwargs):
         try:
             data = SurveyResponseSubmitModel.parse_obj(request.get_json())
         except ValidationError as e:
@@ -39,7 +34,6 @@ class ProjectAPI(api_tools.APIModeHandler):
 class API(api_tools.APIBase):
     url_params = api_tools.with_modes([
         "<int:survey_id>",
-        "<int:project_id>/<int:survey_id>",
     ])
 
     mode_handlers = {

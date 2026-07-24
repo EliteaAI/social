@@ -1,10 +1,9 @@
 from flask import request
 from tools import api_tools, config as c, auth, register_openapi
-from pydantic.v1 import ValidationError
 
 from pylon.core.tools import log
 
-from ...models.pd.surveys import SurveyModel, SurveyUpdateModel, SurveyResponseSubmitModel
+from ...models.pd.surveys import SurveyModel
 
 
 class ProjectAPI(api_tools.APIModeHandler):
@@ -15,13 +14,8 @@ class ProjectAPI(api_tools.APIModeHandler):
         description="Get the enabled survey the current user should be shown, if any.",
         available_to_users=True,
     )
-    @auth.decorators.check_api({
-        "permissions": ["models.social.surveys.view"],
-        "recommended_roles": {
-            c.ADMINISTRATION_MODE: {"admin": True, "editor": True, "viewer": True},
-            c.DEFAULT_MODE: {"admin": True, "editor": True, "viewer": True},
-        }})
-    def get(self, project_id: int | None = None, **kwargs):
+    @api_tools.endpoint_metrics
+    def get(self, **kwargs):
         user_id = auth.current_user().get("id")
         result = self.module.get_active_survey_for_user(user_id)
         return result, 200
@@ -63,7 +57,6 @@ class AdminAPI(api_tools.APIModeHandler):
 class API(api_tools.APIBase):
     url_params = api_tools.with_modes([
         "",
-        "<int:project_id>",
     ])
 
     mode_handlers = {
