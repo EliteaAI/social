@@ -18,7 +18,7 @@ class ProjectAPI(api_tools.APIModeHandler):
              "description": "Survey identifier."},
         ],
         request_body=SurveyResponseSubmitModel,
-        available_to_users=True,
+        available_to_users=False,
     )
     @api_tools.endpoint_metrics
     def post(self, survey_id: int, **kwargs):

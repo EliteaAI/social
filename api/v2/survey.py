@@ -16,7 +16,7 @@ class AdminAPI(api_tools.APIModeHandler):
             {"name": "survey_id", "in": "path", "schema": {"type": "integer"},
              "description": "Survey identifier."},
         ],
-        available_to_users=True,
+        available_to_users=False,
     )
     @auth.decorators.check_api({
         "permissions": ["models.admin.surveys.manage"],
@@ -53,7 +53,7 @@ class AdminAPI(api_tools.APIModeHandler):
             {"name": "survey_id", "in": "path", "schema": {"type": "integer"},
              "description": "Survey identifier."},
         ],
-        available_to_users=True,
+        available_to_users=False,
     )
     @auth.decorators.check_api({
         "permissions": ["models.admin.surveys.manage"],

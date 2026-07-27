@@ -16,7 +16,7 @@ class ProjectAPI(api_tools.APIModeHandler):
             {"name": "action", "in": "path", "schema": {"type": "string", "enum": ["shown", "dismiss"]},
              "description": "State action to record."},
         ],
-        available_to_users=True,
+        available_to_users=False,
     )
     @api_tools.endpoint_metrics
     def post(self, survey_id: int, action: str, **kwargs):

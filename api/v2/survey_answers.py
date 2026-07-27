@@ -23,7 +23,7 @@ class AdminAPI(api_tools.APIModeHandler):
             {"name": "offset", "in": "query", "schema": {"type": "integer"},
              "description": "Row offset for pagination."},
         ],
-        available_to_users=True,
+        available_to_users=False,
     )
     @auth.decorators.check_api({
         "permissions": ["models.admin.surveys.reports.view"],

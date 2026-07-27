@@ -12,7 +12,7 @@ class ProjectAPI(api_tools.APIModeHandler):
     @register_openapi(
         name="Get Active Survey",
         description="Get the enabled survey the current user should be shown, if any.",
-        available_to_users=True,
+        available_to_users=False,
     )
     @api_tools.endpoint_metrics
     def get(self, **kwargs):
@@ -42,7 +42,7 @@ class AdminAPI(api_tools.APIModeHandler):
         name="Create Survey",
         description="Create a new survey with questions.",
         request_body=SurveyModel,
-        available_to_users=True,
+        available_to_users=False,
     )
     @auth.decorators.check_api({
         "permissions": ["models.admin.surveys.manage"],
