@@ -38,12 +38,13 @@ def _make_question(qid, survey_id=1, title="Q", position=0):
     return q
 
 
-def _make_answer(qid, user_id, answer=None, dismissed=False, updated_at=None):
+def _make_answer(qid, user_id, answer=None, dismissed=False, shown=False, updated_at=None):
     a = SimpleNamespace()
     a.question_id = qid
     a.user_id = user_id
     a.answer = answer
     a.dismissed = dismissed
+    a.shown = shown
     a.updated_at = updated_at or datetime(2024, 6, 1)
     return a
 
@@ -228,6 +229,56 @@ class TestSurveyEligibility:
         a = _make_answer(1, 99, answer={"value": 5}, updated_at=None)
         a.updated_at = None
         assert _is_survey_eligible(s, [q], [a]) is True
+
+
+# ---------------------------------------------------------------------------
+# list_current_surveys_for_user eligibility logic
+# ---------------------------------------------------------------------------
+
+def _is_current_survey_eligible(survey, questions, user_answers):
+    """Eligibility for list_current_surveys_for_user: _is_survey_eligible + not-yet-shown."""
+    if not _is_survey_eligible(survey, questions, user_answers):
+        return False
+    fresh = [a for a in user_answers if a.updated_at and a.updated_at >= survey.updated_at]
+    if any(a.shown for a in fresh):
+        return False
+    return True
+
+
+class TestCurrentSurveyEligibility:
+    def test_not_shown_eligible(self):
+        s = _make_survey(updated_at=datetime(2024, 1, 1))
+        q = _make_question(1)
+        assert _is_current_survey_eligible(s, [q], []) is True
+
+    def test_shown_fresh_excluded(self):
+        s = _make_survey(updated_at=datetime(2024, 1, 1))
+        q = _make_question(1)
+        a = _make_answer(1, 99, shown=True, updated_at=datetime(2024, 6, 1))
+        assert _is_current_survey_eligible(s, [q], [a]) is False
+
+    def test_shown_stale_eligible_again(self):
+        """AC9: a shown row older than survey.updated_at is stale -> eligible again."""
+        s = _make_survey(updated_at=datetime(2024, 6, 1))
+        q = _make_question(1)
+        a = _make_answer(1, 99, shown=True, updated_at=datetime(2024, 1, 1))
+        assert _is_current_survey_eligible(s, [q], [a]) is True
+
+    def test_answered_still_excluded(self):
+        s = _make_survey(updated_at=datetime(2024, 1, 1))
+        q = _make_question(1)
+        a = _make_answer(1, 99, answer={"value": 9}, shown=True, updated_at=datetime(2024, 6, 1))
+        assert _is_current_survey_eligible(s, [q], [a]) is False
+
+    def test_dismissed_still_excluded(self):
+        s = _make_survey(updated_at=datetime(2024, 1, 1))
+        q = _make_question(1)
+        a = _make_answer(1, 99, dismissed=True, updated_at=datetime(2024, 6, 1))
+        assert _is_current_survey_eligible(s, [q], [a]) is False
+
+    def test_no_questions_ineligible(self):
+        s = _make_survey()
+        assert _is_current_survey_eligible(s, [], []) is False
 
 
 # ---------------------------------------------------------------------------

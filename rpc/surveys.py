@@ -184,6 +184,43 @@ class RPC:
                 return {"ok": True, "result": _serialize_survey(survey, questions)}
             return {"ok": True, "result": None}
 
+    @web.rpc("social_list_current_surveys_for_user", "list_current_surveys_for_user")
+    def list_current_surveys_for_user(self, user_id: int, args: dict = None) -> dict:
+        args = args or {}
+        name = args.get("name")
+        limit = args.get("limit", 10)
+        offset = args.get("offset", 0)
+
+        with db.with_project_schema_session(None) as session:
+            query = session.query(Survey).filter(Survey.enabled.is_(True))
+            if name:
+                query = query.filter(Survey.name.ilike(f"%{name}%"))
+            surveys = query.order_by(desc(Survey.created_at)).all()
+            eligible = []
+            for survey in surveys:
+                questions = session.query(SurveyQuestion).filter(
+                    SurveyQuestion.survey_id == survey.id).all()
+                if not questions:
+                    continue
+                question_ids = [q.id for q in questions]
+                answers = session.query(SurveyAnswer).filter(
+                    SurveyAnswer.survey_id == survey.id,
+                    SurveyAnswer.user_id == user_id,
+                    SurveyAnswer.question_id.in_(question_ids),
+                ).all()
+                fresh = [a for a in answers if a.updated_at and a.updated_at >= survey.updated_at]
+                if any(a.answer is not None for a in fresh):
+                    continue  # AC9: already answered current version
+                if any(a.dismissed for a in fresh):
+                    continue  # AC9: dismissed current version
+                if any(a.shown for a in fresh):
+                    continue  # already shown to the user
+                eligible.append((survey, questions))
+            total = len(eligible)
+            page = eligible[offset:offset + limit] if limit else eligible[offset:]
+            rows = [_serialize_survey(survey, questions) for survey, questions in page]
+            return {"ok": True, "result": {"total": total, "rows": rows}}
+
     @web.rpc("social_mark_survey_shown", "mark_survey_shown")
     def mark_survey_shown(self, survey_id: int, user_id: int) -> dict:
         with db.with_project_schema_session(None) as session:
