@@ -22,6 +22,7 @@ class ContextManagementModel(BaseModel):
     enabled: Optional[bool] = None
     max_context_tokens: Optional[int] = None
     preserve_recent_messages: Optional[int] = None
+    enable_context_editing: Optional[bool] = None
 
     class Config:
         orm_mode = True
