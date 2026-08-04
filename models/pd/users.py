@@ -13,6 +13,7 @@ class PersonalizationModel(BaseModel):
     # so the API can detect "client did not send this key" via .dict(exclude_unset=True).
     personality_instructions: Optional[Dict[str, str]] = None
     default_internal_mcp_enabled: Optional[bool] = None
+    midturn_injection_enabled: Optional[bool] = None
 
     class Config:
         orm_mode = True
