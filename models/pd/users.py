@@ -14,6 +14,7 @@ class PersonalizationModel(BaseModel):
     personality_instructions: Optional[Dict[str, str]] = None
     default_internal_mcp_enabled: Optional[bool] = None
     midturn_injection_enabled: Optional[bool] = None
+    default_ask_user_enabled: Optional[bool] = None
 
     class Config:
         orm_mode = True
