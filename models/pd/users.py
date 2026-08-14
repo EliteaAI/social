@@ -18,6 +18,7 @@ class PersonalizationModel(BaseModel):
     default_agent_internal_mcp_enabled: Optional[bool] = None
     default_agent_skill_builder_enabled: Optional[bool] = None
     default_agent_project_context_builder_enabled: Optional[bool] = None
+    default_agent_ask_user_enabled: Optional[bool] = None
     midturn_injection_enabled: Optional[bool] = None
     default_ask_user_enabled: Optional[bool] = None
     default_image_generation_enabled: Optional[bool] = None
