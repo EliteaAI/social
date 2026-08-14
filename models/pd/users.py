@@ -13,6 +13,11 @@ class PersonalizationModel(BaseModel):
     # so the API can detect "client did not send this key" via .dict(exclude_unset=True).
     personality_instructions: Optional[Dict[str, str]] = None
     default_internal_mcp_enabled: Optional[bool] = None
+    default_skill_builder_enabled: Optional[bool] = None
+    default_project_context_builder_enabled: Optional[bool] = None
+    default_agent_internal_mcp_enabled: Optional[bool] = None
+    default_agent_skill_builder_enabled: Optional[bool] = None
+    default_agent_project_context_builder_enabled: Optional[bool] = None
     midturn_injection_enabled: Optional[bool] = None
     default_ask_user_enabled: Optional[bool] = None
     default_image_generation_enabled: Optional[bool] = None
@@ -21,6 +26,12 @@ class PersonalizationModel(BaseModel):
     default_pyodide_enabled: Optional[bool] = None
     default_swarm_enabled: Optional[bool] = None
     default_lazy_tools_mode_enabled: Optional[bool] = None
+    default_agent_image_generation_enabled: Optional[bool] = None
+    default_agent_data_analysis_enabled: Optional[bool] = None
+    default_agent_planner_enabled: Optional[bool] = None
+    default_agent_pyodide_enabled: Optional[bool] = None
+    default_agent_swarm_enabled: Optional[bool] = None
+    default_agent_lazy_tools_mode_enabled: Optional[bool] = None
 
     class Config:
         orm_mode = True
@@ -94,4 +105,3 @@ class UserUpdateModel(BaseModel):
                 }
             ]
         }
-
