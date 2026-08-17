@@ -48,7 +48,7 @@ class Module(module.ModuleModel):
                 tags=[
                     {
                         "name": "social",
-                        "description": "Social features — likes, pins, feedbacks, and author profiles.",
+                        "description": "Social features — likes, pins, feedbacks, author profiles, and folders.",
                     },
                 ],
                 api_module=api_v2,
@@ -86,6 +86,31 @@ class Module(module.ModuleModel):
             "permissions": ["models.admin.surveys.reports.view"],
             "recommended_roles": {
                 c.ADMINISTRATION_MODE: {"admin": True, "editor": False, "viewer": False},
+            }})
+        # Folder permissions
+        auth.register_permissions({
+            "permissions": ["social.folders.list"],
+            "recommended_roles": {
+                c.ADMINISTRATION_MODE: {"admin": True, "editor": True, "viewer": False},
+                c.DEFAULT_MODE: {"admin": True, "editor": True, "viewer": True},
+            }})
+        auth.register_permissions({
+            "permissions": ["social.folders.create"],
+            "recommended_roles": {
+                c.ADMINISTRATION_MODE: {"admin": True, "editor": True, "viewer": False},
+                c.DEFAULT_MODE: {"admin": True, "editor": True, "viewer": False},
+            }})
+        auth.register_permissions({
+            "permissions": ["social.folders.update"],
+            "recommended_roles": {
+                c.ADMINISTRATION_MODE: {"admin": True, "editor": True, "viewer": False},
+                c.DEFAULT_MODE: {"admin": True, "editor": True, "viewer": False},
+            }})
+        auth.register_permissions({
+            "permissions": ["social.folders.delete"],
+            "recommended_roles": {
+                c.ADMINISTRATION_MODE: {"admin": True, "editor": True, "viewer": False},
+                c.DEFAULT_MODE: {"admin": True, "editor": True, "viewer": False},
             }})
         # NOTE: end-user survey endpoints (active / response / shown / dismiss) are login-only
         # (authenticated via the forward-auth proxy, keyed by user_id) and are not project-scoped,
