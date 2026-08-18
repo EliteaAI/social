@@ -1,20 +1,15 @@
 import logging
-from typing import Optional
 
 from flask import request
-from pydantic import BaseModel, Field, ValidationError
+from pydantic import ValidationError
 
 from tools import api_tools, auth, config as c, register_openapi
 
-from ...constants import PROMPT_LIB_MODE, EntityType
+from ...constants import PROMPT_LIB_MODE, is_valid_folder_entity
+from ...models.pd.folders import MoveToFolderRequest
+from ...models.enums.entity import FOLDER_ENTITY_TYPES
 
 log = logging.getLogger(__name__)
-
-
-class MoveToFolderRequest(BaseModel):
-    entity_type: str = Field(..., description="Entity type: 'agent', 'pipeline', 'skill', 'toolkit', 'mcp', 'configuration'")
-    entity_id: int = Field(..., description="Entity ID to move")
-    folder_id: Optional[int] = Field(None, description="Target folder ID. Set to null to remove from folder.")
 
 
 class PromptLibAPI(api_tools.APIModeHandler):
@@ -34,6 +29,7 @@ class PromptLibAPI(api_tools.APIModeHandler):
         4. Remove from folder: { "entity_type": "toolkit", "entity_id": 10, "folder_id": null }
 
         Validation:
+        - Entity must exist
         - Folder must exist and belong to the current user
         - Folder's entity_type must match the entity being moved
         """,
@@ -58,8 +54,9 @@ class PromptLibAPI(api_tools.APIModeHandler):
         except ValidationError as e:
             return e.errors(), 400
 
-        if not EntityType.is_valid(parsed.entity_type):
-            return {"error": f"Invalid entity_type. Must be one of: {', '.join(EntityType.values())}"}, 400
+        if not is_valid_folder_entity(parsed.entity_type):
+            valid = ', '.join(e.value for e in FOLDER_ENTITY_TYPES)
+            return {"error": f"Invalid entity_type. Must be one of: {valid}"}, 400
 
         # Use RPC to move entity to folder
         result = self.module.move_entity_to_folder(

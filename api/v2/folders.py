@@ -6,8 +6,9 @@ from pydantic import ValidationError
 from tools import api_tools, auth, config as c, register_openapi
 from tools import serialize
 
-from ...constants import PROMPT_LIB_MODE, EntityType
+from ...constants import PROMPT_LIB_MODE, is_valid_folder_entity
 from ...models.pd.folders import EntityFolderCreate, EntityFolderDetails
+from ...models.enums.entity import FOLDER_ENTITY_TYPES
 
 log = logging.getLogger(__name__)
 
@@ -39,6 +40,7 @@ class PromptLibAPI(api_tools.APIModeHandler):
         parameters=[
             {"name": "entity_type", "in": "query", "required": True, "schema": {"type": "string", "enum": ["agent", "pipeline", "skill", "toolkit", "mcp", "configuration"]}, "description": "Entity type to list folders for."},
             {"name": "query", "in": "query", "required": False, "schema": {"type": "string"}, "description": "Search query for folder names."},
+            {"name": "include_counts", "in": "query", "required": False, "schema": {"type": "boolean", "default": False}, "description": "Include entity counts per folder."},
         ],
         available_to_users=True,
     )
@@ -55,15 +57,18 @@ class PromptLibAPI(api_tools.APIModeHandler):
         if not entity_type:
             return {"error": "entity_type is required"}, 400
 
-        if not EntityType.is_valid(entity_type):
-            return {"error": f"entity_type must be one of: {', '.join(EntityType.values())}"}, 400
+        if not is_valid_folder_entity(entity_type):
+            valid = ', '.join(e.value for e in FOLDER_ENTITY_TYPES)
+            return {"error": f"entity_type must be one of: {valid}"}, 400
 
         query = request.args.get('query')
+        include_counts = request.args.get('include_counts', 'false').lower() == 'true'
 
         folders = self.module.get_folders(
             project_id=project_id,
             entity_type=entity_type,
-            query=query
+            query=query,
+            include_counts=include_counts
         )
 
         return {
@@ -77,7 +82,7 @@ class PromptLibAPI(api_tools.APIModeHandler):
         mcp_description="""
         USE to create a new folder for organizing entities.
 
-        DO NOT USE to move an entity into a folder → entity-specific move endpoints handle that.
+        DO NOT USE to move an entity into a folder → use move-to-folder endpoint.
         DO NOT USE to rename an existing folder → use update endpoint.
 
         Examples:
@@ -107,8 +112,9 @@ class PromptLibAPI(api_tools.APIModeHandler):
         if not entity_type:
             return {"error": "entity_type is required"}, 400
 
-        if not EntityType.is_valid(entity_type):
-            return {"error": f"entity_type must be one of: {', '.join(EntityType.values())}"}, 400
+        if not is_valid_folder_entity(entity_type):
+            valid = ', '.join(e.value for e in FOLDER_ENTITY_TYPES)
+            return {"error": f"entity_type must be one of: {valid}"}, 400
 
         result = self.module.create_folder(
             project_id=project_id,
