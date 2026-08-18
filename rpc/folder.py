@@ -18,7 +18,6 @@ class RPC:
             project_id: int,
             entity_type: str,
             name: str,
-            sub_type: str = None,
             user_id: int = None,
             meta: dict = None
     ) -> dict:
@@ -30,7 +29,6 @@ class RPC:
             parsed = EntityFolderCreate(
                 name=name,
                 entity_type=entity_type,
-                sub_type=sub_type,
                 owner_id=user_id,
                 meta=meta or {}
             )
@@ -51,7 +49,6 @@ class RPC:
             self,
             project_id: int,
             entity_type: str,
-            sub_type: str = None,
             user_id: int = None,
             query: str = None
     ) -> list[dict]:
@@ -64,8 +61,6 @@ class RPC:
                 EntityFolder.owner_id == user_id,
                 EntityFolder.entity_type == entity_type
             )
-            if sub_type:
-                q = q.filter(EntityFolder.sub_type == sub_type)
             if query:
                 q = q.filter(EntityFolder.name.ilike(f'%{query}%'))
 
@@ -160,7 +155,7 @@ class RPC:
 
         # Try to use RPCs from respective plugins
         try:
-            if entity_type == EntityType.APPLICATION.value:
+            if entity_type in (EntityType.AGENT.value, EntityType.PIPELINE.value):
                 app = self.context.rpc_manager.call.applications_get_by_id(
                     project_id=project_id, app_id=entity_id
                 )
@@ -170,7 +165,7 @@ class RPC:
                     project_id=project_id, id=entity_id
                 )
                 return skill is not None
-            elif entity_type == EntityType.TOOLKIT.value:
+            elif entity_type in (EntityType.TOOLKIT.value, EntityType.MCP.value):
                 tool = self.context.rpc_manager.call.elitea_tools_get(
                     project_id=project_id, tool_id=entity_id
                 )
@@ -203,7 +198,6 @@ class RPC:
             entity_type: str,
             entity_id: int,
             folder_id: Optional[int],
-            sub_type: Optional[str] = None,
             user_id: Optional[int] = None
     ) -> dict:
         """Move an entity to a folder or remove from folder (folder_id=None).
@@ -212,7 +206,6 @@ class RPC:
         - Entity exists
         - Folder exists and belongs to user (if folder_id provided)
         - Folder entity_type matches
-        - For applications: sub_type matches
         """
         if not user_id:
             user_id = auth.current_user().get("id")
@@ -257,16 +250,6 @@ class RPC:
                     'ok': False,
                     'error': f"Folder type mismatch. Folder is for '{folder.entity_type}' but entity is '{entity_type}'"
                 }
-
-            # For applications, verify sub_type match
-            if entity_type == EntityType.APPLICATION.value:
-                if not sub_type:
-                    return {'ok': False, 'error': 'sub_type is required for applications (openai or pipeline)'}
-                if folder.sub_type != sub_type:
-                    return {
-                        'ok': False,
-                        'error': f"Folder sub_type mismatch. Folder is '{folder.sub_type}' but application is '{sub_type}'"
-                    }
 
             # Move entity to folder
             session.execute(

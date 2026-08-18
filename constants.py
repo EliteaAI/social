@@ -6,9 +6,11 @@ PROMPT_LIB_MODE = 'prompt_lib'
 
 class EntityType(str, Enum):
     """Supported entity types for folder organization."""
-    APPLICATION = "application"
+    AGENT = "agent"
+    PIPELINE = "pipeline"
     SKILL = "skill"
     TOOLKIT = "toolkit"
+    MCP = "mcp"
     CONFIGURATION = "configuration"
 
     @classmethod
@@ -24,8 +26,10 @@ class EntityType(str, Enum):
 
 # Mapping of entity types to their database table names
 ENTITY_TABLE_MAP = {
-    EntityType.APPLICATION.value: "applications",
+    EntityType.AGENT.value: "applications",
+    EntityType.PIPELINE.value: "applications",
     EntityType.SKILL.value: "skills",
     EntityType.TOOLKIT.value: "elitea_tools",
+    EntityType.MCP.value: "elitea_tools",
     EntityType.CONFIGURATION.value: "configuration",
 }

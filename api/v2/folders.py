@@ -17,27 +17,27 @@ class PromptLibAPI(api_tools.APIModeHandler):
 
     @register_openapi(
         name="List Entity Folders",
-        description="List folders for organizing entities (applications, skills, toolkits, configurations)",
+        description="List folders for organizing entities (agents, pipelines, skills, toolkits, mcp, configurations)",
         mcp_description="""
         USE to get folder structure for any entity type.
 
-        Mode selection guide:
-        - Agent folders: GET .../folders/prompt_lib/42?entity_type=application&sub_type=openai
-        - Pipeline folders: GET .../folders/prompt_lib/42?entity_type=application&sub_type=pipeline
-        - Skill folders: GET .../folders/prompt_lib/42?entity_type=skill
-        - Toolkit folders: GET .../folders/prompt_lib/42?entity_type=toolkit
-        - MCP folders: GET .../folders/prompt_lib/42?entity_type=toolkit&sub_type=mcp
-        - Config folders: GET .../folders/prompt_lib/42?entity_type=configuration
+        Supported entity types:
+        - agent: AI agents (OpenAI-based applications)
+        - pipeline: Pipeline applications
+        - skill: Skills
+        - toolkit: Toolkits
+        - mcp: MCP servers
+        - configuration: Configurations/credentials
 
         Examples:
-        1. List agent folders: GET .../folders/prompt_lib/42?entity_type=application&sub_type=openai
-        2. Search folders: GET ...?entity_type=skill&query=review
+        1. List agent folders: GET .../folders/prompt_lib/42?entity_type=agent
+        2. List pipeline folders: GET .../folders/prompt_lib/42?entity_type=pipeline
+        3. Search skill folders: GET ...?entity_type=skill&query=review
         """,
         tags=["social"],
         mcp_tool=True,
         parameters=[
-            {"name": "entity_type", "in": "query", "required": True, "schema": {"type": "string", "enum": ["application", "skill", "toolkit", "configuration"]}, "description": "Entity type to list folders for."},
-            {"name": "sub_type", "in": "query", "required": False, "schema": {"type": "string"}, "description": "Sub-type filter ('openai', 'pipeline' for applications; 'mcp' for toolkits)."},
+            {"name": "entity_type", "in": "query", "required": True, "schema": {"type": "string", "enum": ["agent", "pipeline", "skill", "toolkit", "mcp", "configuration"]}, "description": "Entity type to list folders for."},
             {"name": "query", "in": "query", "required": False, "schema": {"type": "string"}, "description": "Search query for folder names."},
         ],
         available_to_users=True,
@@ -58,13 +58,11 @@ class PromptLibAPI(api_tools.APIModeHandler):
         if not EntityType.is_valid(entity_type):
             return {"error": f"entity_type must be one of: {', '.join(EntityType.values())}"}, 400
 
-        sub_type = request.args.get('sub_type')
         query = request.args.get('query')
 
         folders = self.module.get_folders(
             project_id=project_id,
             entity_type=entity_type,
-            sub_type=sub_type,
             query=query
         )
 
@@ -83,10 +81,11 @@ class PromptLibAPI(api_tools.APIModeHandler):
         DO NOT USE to rename an existing folder → use update endpoint.
 
         Examples:
-        1. Create agent folder: { 'name': 'Code Review Agents', 'entity_type': 'application', 'sub_type': 'openai' }
-        2. Create pipeline folder: { 'name': 'CI Pipelines', 'entity_type': 'application', 'sub_type': 'pipeline' }
+        1. Create agent folder: { 'name': 'Code Review Agents', 'entity_type': 'agent' }
+        2. Create pipeline folder: { 'name': 'CI Pipelines', 'entity_type': 'pipeline' }
         3. Create skill folder: { 'name': 'Documentation Skills', 'entity_type': 'skill' }
         4. Create toolkit folder: { 'name': 'VCS Toolkits', 'entity_type': 'toolkit' }
+        5. Create MCP folder: { 'name': 'Database MCPs', 'entity_type': 'mcp' }
         """,
         tags=["social"],
         mcp_tool=True,
@@ -115,7 +114,6 @@ class PromptLibAPI(api_tools.APIModeHandler):
             project_id=project_id,
             entity_type=entity_type,
             name=raw.get('name'),
-            sub_type=raw.get('sub_type'),
             meta=raw.get('meta')
         )
 

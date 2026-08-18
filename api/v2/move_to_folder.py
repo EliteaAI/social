@@ -12,31 +12,30 @@ log = logging.getLogger(__name__)
 
 
 class MoveToFolderRequest(BaseModel):
-    entity_type: str = Field(..., description="Entity type: 'application', 'skill', 'toolkit', 'configuration'")
+    entity_type: str = Field(..., description="Entity type: 'agent', 'pipeline', 'skill', 'toolkit', 'mcp', 'configuration'")
     entity_id: int = Field(..., description="Entity ID to move")
     folder_id: Optional[int] = Field(None, description="Target folder ID. Set to null to remove from folder.")
-    sub_type: Optional[str] = Field(None, description="For applications: 'openai' or 'pipeline'. Required when moving to a folder.")
 
 
 class PromptLibAPI(api_tools.APIModeHandler):
 
     @register_openapi(
         name="Move Entity to Folder",
-        description="Move any entity (application, skill, toolkit, configuration) to a folder or remove from folder",
+        description="Move any entity (agent, pipeline, skill, toolkit, mcp, configuration) to a folder or remove from folder",
         mcp_description="""
         USE to move an entity into a folder, or remove it from a folder.
 
-        Supported entity types: application, skill, toolkit, configuration
+        Supported entity types: agent, pipeline, skill, toolkit, mcp, configuration
 
         Examples:
-        1. Move agent to folder: { "entity_type": "application", "entity_id": 7, "folder_id": 5, "sub_type": "openai" }
-        2. Move skill to folder: { "entity_type": "skill", "entity_id": 3, "folder_id": 2 }
-        3. Remove from folder: { "entity_type": "toolkit", "entity_id": 10, "folder_id": null }
+        1. Move agent to folder: { "entity_type": "agent", "entity_id": 7, "folder_id": 5 }
+        2. Move pipeline to folder: { "entity_type": "pipeline", "entity_id": 3, "folder_id": 2 }
+        3. Move skill to folder: { "entity_type": "skill", "entity_id": 3, "folder_id": 2 }
+        4. Remove from folder: { "entity_type": "toolkit", "entity_id": 10, "folder_id": null }
 
         Validation:
         - Folder must exist and belong to the current user
         - Folder's entity_type must match the entity being moved
-        - For applications: sub_type must match folder's sub_type (openai vs pipeline)
         """,
         tags=["social"],
         mcp_tool=True,
@@ -67,8 +66,7 @@ class PromptLibAPI(api_tools.APIModeHandler):
             project_id=project_id,
             entity_type=parsed.entity_type,
             entity_id=parsed.entity_id,
-            folder_id=parsed.folder_id,
-            sub_type=parsed.sub_type
+            folder_id=parsed.folder_id
         )
 
         if not result.get('ok'):

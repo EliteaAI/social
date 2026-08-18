@@ -6,8 +6,7 @@ from uuid import UUID
 
 class EntityFolderBase(BaseModel):
     name: str = Field(..., max_length=128)
-    entity_type: str = Field(..., description="'application', 'skill', 'toolkit', 'configuration'")
-    sub_type: Optional[str] = Field(None, description="'openai', 'pipeline' for applications; 'mcp' for toolkits")
+    entity_type: str = Field(..., description="'agent', 'pipeline', 'skill', 'toolkit', 'mcp', 'configuration'")
     meta: Optional[Dict] = Field(default_factory=dict)
 
 
