@@ -6,7 +6,7 @@ from pydantic import ValidationError
 from tools import api_tools, auth, config as c, register_openapi
 from tools import serialize
 
-from ...constants import PROMPT_LIB_MODE
+from ...constants import PROMPT_LIB_MODE, EntityType
 from ...models.pd.folders import EntityFolderCreate, EntityFolderDetails
 
 log = logging.getLogger(__name__)
@@ -55,8 +55,8 @@ class PromptLibAPI(api_tools.APIModeHandler):
         if not entity_type:
             return {"error": "entity_type is required"}, 400
 
-        if entity_type not in ['application', 'skill', 'toolkit', 'configuration']:
-            return {"error": "entity_type must be one of: application, skill, toolkit, configuration"}, 400
+        if not EntityType.is_valid(entity_type):
+            return {"error": f"entity_type must be one of: {', '.join(EntityType.values())}"}, 400
 
         sub_type = request.args.get('sub_type')
         query = request.args.get('query')
@@ -108,8 +108,8 @@ class PromptLibAPI(api_tools.APIModeHandler):
         if not entity_type:
             return {"error": "entity_type is required"}, 400
 
-        if entity_type not in ['application', 'skill', 'toolkit', 'configuration']:
-            return {"error": "entity_type must be one of: application, skill, toolkit, configuration"}, 400
+        if not EntityType.is_valid(entity_type):
+            return {"error": f"entity_type must be one of: {', '.join(EntityType.values())}"}, 400
 
         result = self.module.create_folder(
             project_id=project_id,

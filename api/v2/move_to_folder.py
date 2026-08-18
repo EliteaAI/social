@@ -3,23 +3,12 @@ from typing import Optional
 
 from flask import request
 from pydantic import BaseModel, Field, ValidationError
-from sqlalchemy import text
 
-from pylon.core.tools import web
+from tools import api_tools, auth, config as c, register_openapi
 
-from tools import api_tools, auth, config as c, db, register_openapi
-
-from ...models.folders import EntityFolder
+from ...constants import PROMPT_LIB_MODE, EntityType
 
 log = logging.getLogger(__name__)
-
-
-ENTITY_TABLE_MAP = {
-    "application": "applications",
-    "skill": "skills",
-    "toolkit": "elitea_tools",
-    "configuration": "configuration",
-}
 
 
 class MoveToFolderRequest(BaseModel):
@@ -64,73 +53,37 @@ class PromptLibAPI(api_tools.APIModeHandler):
     @api_tools.endpoint_metrics
     def put(self, project_id: int, **kwargs):
         raw = dict(request.json)
-        user_id = auth.current_user().get("id")
 
         try:
             parsed = MoveToFolderRequest.model_validate(raw)
         except ValidationError as e:
             return e.errors(), 400
 
-        if parsed.entity_type not in ENTITY_TABLE_MAP:
-            return {"error": f"Invalid entity_type. Must be one of: {list(ENTITY_TABLE_MAP.keys())}"}, 400
+        if not EntityType.is_valid(parsed.entity_type):
+            return {"error": f"Invalid entity_type. Must be one of: {', '.join(EntityType.values())}"}, 400
 
-        table_name = ENTITY_TABLE_MAP[parsed.entity_type]
-        schema = f"p_{project_id}"
+        # Use RPC to move entity to folder
+        result = self.module.move_entity_to_folder(
+            project_id=project_id,
+            entity_type=parsed.entity_type,
+            entity_id=parsed.entity_id,
+            folder_id=parsed.folder_id,
+            sub_type=parsed.sub_type
+        )
 
-        with db.get_session(project_id) as session:
-            # Verify entity exists
-            check_entity_sql = text(f"SELECT id FROM {schema}.{table_name} WHERE id = :entity_id")
-            entity = session.execute(check_entity_sql, {"entity_id": parsed.entity_id}).fetchone()
-            if not entity:
-                return {"error": f"{parsed.entity_type.capitalize()} not found"}, 404
+        if not result.get('ok'):
+            error = result.get('error', 'Failed to move entity')
+            # Determine appropriate status code
+            if 'not found' in error.lower():
+                return {"error": error}, 404
+            return {"error": error}, 400
 
-            # If folder_id is None, remove from folder
-            if parsed.folder_id is None:
-                update_sql = text(f"UPDATE {schema}.{table_name} SET folder_id = NULL WHERE id = :entity_id")
-                session.execute(update_sql, {"entity_id": parsed.entity_id})
-                session.commit()
-                return {
-                    "message": f"{parsed.entity_type.capitalize()} removed from folder",
-                    "entity_type": parsed.entity_type,
-                    "entity_id": parsed.entity_id,
-                    "folder_id": None
-                }, 200
-
-            # Verify folder exists and belongs to user
-            folder = session.query(EntityFolder).filter(
-                EntityFolder.id == parsed.folder_id,
-                EntityFolder.owner_id == user_id
-            ).first()
-            if not folder:
-                return {"error": "Folder not found or you don't have permission"}, 404
-
-            # Verify folder entity_type matches
-            if folder.entity_type != parsed.entity_type:
-                return {
-                    "error": f"Folder type mismatch. Folder is for '{folder.entity_type}' but entity is '{parsed.entity_type}'"
-                }, 400
-
-            # For applications, verify sub_type match
-            if parsed.entity_type == "application":
-                if not parsed.sub_type:
-                    return {"error": "sub_type is required for applications (openai or pipeline)"}, 400
-                if folder.sub_type != parsed.sub_type:
-                    return {
-                        "error": f"Folder sub_type mismatch. Folder is '{folder.sub_type}' but application is '{parsed.sub_type}'"
-                    }, 400
-
-            # Move entity to folder
-            update_sql = text(f"UPDATE {schema}.{table_name} SET folder_id = :folder_id WHERE id = :entity_id")
-            session.execute(update_sql, {"folder_id": parsed.folder_id, "entity_id": parsed.entity_id})
-            session.commit()
-
-            log.info("Moved %s %s to folder %s", parsed.entity_type, parsed.entity_id, parsed.folder_id)
-            return {
-                "message": f"{parsed.entity_type.capitalize()} moved to folder",
-                "entity_type": parsed.entity_type,
-                "entity_id": parsed.entity_id,
-                "folder_id": parsed.folder_id
-            }, 200
+        return {
+            "message": result.get('message'),
+            "entity_type": result.get('entity_type'),
+            "entity_id": result.get('entity_id'),
+            "folder_id": result.get('folder_id')
+        }, 200
 
 
 class API(api_tools.APIBase):
@@ -139,5 +92,5 @@ class API(api_tools.APIBase):
     ])
 
     mode_handlers = {
-        c.DEFAULT_MODE: PromptLibAPI,
+        PROMPT_LIB_MODE: PromptLibAPI,
     }
