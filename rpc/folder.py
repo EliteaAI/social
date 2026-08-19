@@ -14,6 +14,7 @@ from ..constants import is_valid_folder_entity
 
 
 class RPC:
+    @web.method()
     @web.rpc('social_create_folder', 'create_folder')
     def create_folder(
             self,
@@ -46,6 +47,7 @@ class RPC:
                 'folder': serialize(EntityFolderDetails.model_validate(folder))
             }
 
+    @web.method()
     @web.rpc('social_get_folders', 'get_folders')
     def get_folders(
             self,
@@ -81,6 +83,7 @@ class RPC:
 
             return result
 
+    @web.method()
     @web.rpc('social_get_folder', 'get_folder')
     def get_folder(self, project_id: int, folder_id: int, include_count: bool = False) -> Optional[dict]:
         """Get a single folder by ID."""
@@ -98,6 +101,7 @@ class RPC:
                 return result
             return None
 
+    @web.method()
     @web.rpc('social_update_folder', 'update_folder')
     def update_folder(
             self,
@@ -125,6 +129,7 @@ class RPC:
                 'folder': serialize(EntityFolderDetails.model_validate(folder))
             }
 
+    @web.method()
     @web.rpc('social_pin_folder', 'pin_folder')
     def pin_folder(self, project_id: int, folder_id: int, is_pinned: bool) -> dict:
         """Update folder pin status in meta field."""
@@ -145,6 +150,7 @@ class RPC:
                 'folder': serialize(EntityFolderDetails.model_validate(folder))
             }
 
+    @web.method()
     @web.rpc('social_delete_folder', 'delete_folder')
     def delete_folder(self, project_id: int, folder_id: int) -> dict:
         """Delete a folder and all its folder items."""
@@ -174,47 +180,81 @@ class RPC:
         """Return the FolderItem model for advanced queries."""
         return FolderItem
 
+    @web.method()
     @web.rpc('social_entity_exists', 'entity_exists')
     def entity_exists(self, project_id: int, entity_type: str, entity_id: int) -> dict:
-        """Check if an entity exists and get its name for sorting.
+        """Check if an entity of the specified type exists.
 
         Returns {'exists': bool, 'name': str or None}
-        Uses RPCs from respective plugins.
+
+        IMPORTANT: This validates that the entity's actual type matches the requested
+        entity_type. For example, if you request entity_type='agent' but entity_id
+        points to a pipeline, this returns exists=False.
         """
         if not is_valid_folder_entity(entity_type):
             return {'exists': False, 'name': None}
 
         try:
             et = EntityType(entity_type)
-            if et in (EntityType.agent, EntityType.pipeline):
-                app = self.context.rpc_manager.call.applications_get_by_id(
-                    project_id=project_id, app_id=entity_id
+
+            if et == EntityType.agent:
+                # Only match non-pipeline applications (agents)
+                app = self.context.rpc_manager.timeout(5).applications_get_application_by_id(
+                    project_id=project_id, application_id=entity_id
                 )
-                if app:
+                # agent_type is in version_details, not at top level
+                version_details = app.get('version_details', {}) if app else {}
+                actual_agent_type = version_details.get('agent_type')
+                if app and actual_agent_type != 'pipeline':
                     return {'exists': True, 'name': app.get('name', '')}
+
+            elif et == EntityType.pipeline:
+                # Only match pipeline applications
+                app = self.context.rpc_manager.timeout(5).applications_get_application_by_id(
+                    project_id=project_id, application_id=entity_id
+                )
+                # agent_type is in version_details, not at top level
+                version_details = app.get('version_details', {}) if app else {}
+                actual_agent_type = version_details.get('agent_type')
+                if app and actual_agent_type == 'pipeline':
+                    return {'exists': True, 'name': app.get('name', '')}
+
             elif et == EntityType.skill:
-                skill = self.context.rpc_manager.call.skills_get(
-                    project_id=project_id, id=entity_id
+                skill = self.context.rpc_manager.timeout(5).skills_get_skill_by_id(
+                    project_id=project_id, skill_id=entity_id
                 )
                 if skill:
                     return {'exists': True, 'name': skill.get('name', '')}
-            elif et in (EntityType.toolkit, EntityType.mcp):
-                tool = self.context.rpc_manager.call.elitea_tools_get(
-                    project_id=project_id, tool_id=entity_id
+
+            elif et == EntityType.toolkit:
+                # Only match non-MCP toolkits
+                tool = self.context.rpc_manager.timeout(5).applications_get_toolkit_by_id(
+                    project_id=project_id, toolkit_id=entity_id
                 )
-                if tool:
+                if tool and tool.get('type') != 'mcp':
                     return {'exists': True, 'name': tool.get('name', '')}
+
+            elif et == EntityType.mcp:
+                # Only match MCP toolkits
+                tool = self.context.rpc_manager.timeout(5).applications_get_toolkit_by_id(
+                    project_id=project_id, toolkit_id=entity_id
+                )
+                if tool and tool.get('type') == 'mcp':
+                    return {'exists': True, 'name': tool.get('name', '')}
+
             elif et == EntityType.configuration:
-                config = self.context.rpc_manager.call.configuration_get(
+                config = self.context.rpc_manager.timeout(5).configurations_get_by_id(
                     project_id=project_id, configuration_id=entity_id
                 )
                 if config:
                     return {'exists': True, 'name': config.get('name', '')}
+
         except Exception as e:
             log.warning("RPC call failed for entity check: %s", e)
 
         return {'exists': False, 'name': None}
 
+    @web.method()
     @web.rpc('social_move_entity_to_folder', 'move_entity_to_folder')
     def move_entity_to_folder(
             self,
@@ -297,6 +337,7 @@ class RPC:
                 'folder_id': folder_id
             }
 
+    @web.method()
     @web.rpc('social_get_folder_items', 'get_folder_items')
     def get_folder_items(
             self,
