@@ -84,30 +84,33 @@ class Event:
             log.warning("Failed to clean up folder items for %s %s: %s",
                         entity_type, tool_id, e)
 
-    # NOTE: skill_deleted event does not exist in elitea_core.
-    # The skill deletion API (elitea_core/api/v2/skill.py) does not fire any event.
-    # Skill folder items will leak until either:
-    # 1. elitea_core adds a skill_deleted event, or
-    # 2. A periodic cleanup job is implemented
-    # Keeping this handler commented out to avoid confusion about dead code.
-    #
-    # @web.event("skill_deleted")
-    # def on_skill_deleted(self, context, event, payload):
-    #     """Clean up folder items when a skill is deleted."""
-    #     project_id = payload.get('project_id')
-    #     skill_id = payload.get('id') or payload.get('skill_id')
-    #     if not project_id or not skill_id:
-    #         return
-    #     try:
-    #         result = self.remove_entity_from_folders(
-    #             project_id=project_id,
-    #             entity_type=EntityType.skill.value,
-    #             entity_id=skill_id
-    #         )
-    #         if result.get('deleted', 0) > 0:
-    #             log.info("Cleaned up folder items for deleted skill %s", skill_id)
-    #     except Exception as e:
-    #         log.warning("Failed to clean up folder items for skill %s: %s", skill_id, e)
+    @web.event("skill_deleted")
+    def on_skill_deleted(self, context, event, payload):
+        """Clean up folder items when a skill is deleted.
+
+        Payload from elitea_core skill_utils.delete_skill():
+        - id: skill ID
+        - name: skill name
+        - project_id: project ID
+        """
+        project_id = payload.get('project_id')
+        skill_id = payload.get('id')
+
+        if not project_id or not skill_id:
+            return
+
+        try:
+            result = self.remove_entity_from_folders(
+                project_id=project_id,
+                entity_type=EntityType.skill.value,
+                entity_id=skill_id
+            )
+            if result.get('deleted', 0) > 0:
+                log.info("Cleaned up %s folder items for deleted skill %s",
+                         result['deleted'], skill_id)
+        except Exception as e:
+            log.warning("Failed to clean up folder items for skill %s: %s",
+                        skill_id, e)
 
     @web.event("configuration_deleted")
     def on_configuration_deleted(self, context, event, payload):
