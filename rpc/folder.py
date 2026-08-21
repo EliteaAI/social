@@ -14,7 +14,6 @@ from ..constants import is_valid_folder_entity
 
 
 class RPC:
-    @web.method()
     @web.rpc('social_create_folder', 'create_folder')
     def create_folder(
             self,
@@ -47,7 +46,6 @@ class RPC:
                 'folder': serialize(EntityFolderDetails.model_validate(folder))
             }
 
-    @web.method()
     @web.rpc('social_get_folders', 'get_folders')
     def get_folders(
             self,
@@ -83,7 +81,6 @@ class RPC:
 
             return result
 
-    @web.method()
     @web.rpc('social_get_folder', 'get_folder')
     def get_folder(self, project_id: int, folder_id: int, include_count: bool = False) -> Optional[dict]:
         """Get a single folder by ID."""
@@ -101,7 +98,6 @@ class RPC:
                 return result
             return None
 
-    @web.method()
     @web.rpc('social_update_folder', 'update_folder')
     def update_folder(
             self,
@@ -129,7 +125,6 @@ class RPC:
                 'folder': serialize(EntityFolderDetails.model_validate(folder))
             }
 
-    @web.method()
     @web.rpc('social_pin_folder', 'pin_folder')
     def pin_folder(self, project_id: int, folder_id: int, is_pinned: bool) -> dict:
         """Update folder pin status in meta field."""
@@ -150,7 +145,6 @@ class RPC:
                 'folder': serialize(EntityFolderDetails.model_validate(folder))
             }
 
-    @web.method()
     @web.rpc('social_delete_folder', 'delete_folder')
     def delete_folder(self, project_id: int, folder_id: int) -> dict:
         """Delete a folder and all its folder items."""
@@ -180,7 +174,6 @@ class RPC:
         """Return the FolderItem model for advanced queries."""
         return FolderItem
 
-    @web.method()
     @web.rpc('social_entity_exists', 'entity_exists')
     def entity_exists(self, project_id: int, entity_type: str, entity_id: int) -> dict:
         """Check if an entity of the specified type exists.
@@ -254,7 +247,6 @@ class RPC:
 
         return {'exists': False, 'name': None}
 
-    @web.method()
     @web.rpc('social_move_entity_to_folder', 'move_entity_to_folder')
     def move_entity_to_folder(
             self,
@@ -337,7 +329,6 @@ class RPC:
                 'folder_id': folder_id
             }
 
-    @web.method()
     @web.rpc('social_get_folder_items', 'get_folder_items')
     def get_folder_items(
             self,
@@ -436,6 +427,48 @@ class RPC:
             if folder:
                 return serialize(EntityFolderDetails.model_validate(folder))
             return None
+
+    @web.rpc('social_get_entities_folder_info_bulk', 'get_entities_folder_info_bulk')
+    def get_entities_folder_info_bulk(
+            self,
+            project_id: int,
+            entity_type: str,
+            entity_ids: List[int],
+            user_id: Optional[int] = None
+    ) -> dict:
+        """Get folder info for multiple entities in bulk.
+
+        Returns a dict mapping entity_id to folder info:
+        {entity_id: {'folder_id': int, 'folder_name': str}, ...}
+
+        Entities not in any folder are not included in the result.
+        """
+        if not user_id:
+            user_id = auth.current_user().get("id")
+
+        if not entity_ids:
+            return {}
+
+        with db.get_session(project_id) as session:
+            results = session.query(
+                FolderItem.entity_id,
+                FolderItem.folder_id,
+                EntityFolder.name.label('folder_name')
+            ).join(
+                EntityFolder, EntityFolder.id == FolderItem.folder_id
+            ).filter(
+                FolderItem.entity == entity_type,
+                FolderItem.entity_id.in_(entity_ids),
+                FolderItem.owner_id == user_id
+            ).all()
+
+            return {
+                row.entity_id: {
+                    'folder_id': row.folder_id,
+                    'folder_name': row.folder_name
+                }
+                for row in results
+            }
 
     @web.rpc('social_remove_entity_from_folders', 'remove_entity_from_folders')
     def remove_entity_from_folders(
