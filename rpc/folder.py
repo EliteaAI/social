@@ -220,20 +220,24 @@ class RPC:
                     return {'exists': True, 'name': skill.get('name', '')}
 
             elif et == EntityType.toolkit:
-                # Only match non-MCP toolkits
+                # Only match non-MCP toolkits (exclude type='mcp' and meta.mcp=True local MCPs)
                 tool = self.context.rpc_manager.timeout(5).applications_get_toolkit_by_id(
                     project_id=project_id, toolkit_id=entity_id
                 )
-                if tool and tool.get('type') != 'mcp':
-                    return {'exists': True, 'name': tool.get('name', '')}
+                if tool:
+                    is_mcp = tool.get('type') == 'mcp' or (tool.get('meta') or {}).get('mcp') is True
+                    if not is_mcp:
+                        return {'exists': True, 'name': tool.get('name', '')}
 
             elif et == EntityType.mcp:
-                # Only match MCP toolkits
+                # Only match MCP toolkits (either type='mcp' or meta.mcp=True for local MCPs)
                 tool = self.context.rpc_manager.timeout(5).applications_get_toolkit_by_id(
                     project_id=project_id, toolkit_id=entity_id
                 )
-                if tool and tool.get('type') == 'mcp':
-                    return {'exists': True, 'name': tool.get('name', '')}
+                if tool:
+                    is_mcp = tool.get('type') == 'mcp' or (tool.get('meta') or {}).get('mcp') is True
+                    if is_mcp:
+                        return {'exists': True, 'name': tool.get('name', '')}
 
             elif et == EntityType.configuration:
                 config = self.context.rpc_manager.timeout(5).configurations_get_by_id(
