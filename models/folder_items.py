@@ -3,7 +3,7 @@ from datetime import datetime
 from sqlalchemy import Integer, String, DateTime, func, UniqueConstraint, Index
 from sqlalchemy.orm import Mapped, mapped_column
 
-from tools import db_tools, db
+from tools import db_tools, db, config as c
 
 from .enums.entity import EntityType
 
@@ -21,6 +21,7 @@ class FolderItem(db_tools.AbstractBaseMixin, db.Base):
         Index('ix_folder_items_folder_sort', 'folder_id', 'sort_name'),
         Index('ix_folder_items_folder_entity', 'folder_id', 'entity', 'entity_id'),
         Index('ix_folder_items_owner', 'owner_id', 'entity'),
+        {'schema': c.POSTGRES_TENANT_SCHEMA},
     )
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True)
