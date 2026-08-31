@@ -4,6 +4,7 @@ from flask import request, g, jsonify
 from pylon.core.tools import log
 from tools import api_tools, auth, constants as c, register_openapi
 
+from ...constants import MODULE_TOGGLE_FIELDS
 from ...models.users import User
 from ...models.pd.users import UserUpdateModel
 
@@ -25,6 +26,10 @@ def _hydrate_personalization(personalization):
         if result.get('default_instructions'):
             instructions_map[persona] = result['default_instructions']
     result['personality_instructions'] = instructions_map
+    # Module toggles are served exclusively via /social/module_settings/<project_id> now (#6285);
+    # strip any stale values so this endpoint can't surface or accept them anymore.
+    for field in MODULE_TOGGLE_FIELDS:
+        result.pop(field, None)
     return result
 
 
@@ -102,8 +107,14 @@ class API(api_tools.APIBase):
         if 'description' in data:
             user.description = data['description']
         if 'personalization' in data:
+            # Strip module-toggle keys (#6285): this endpoint no longer accepts them, even from
+            # a stale client build; they must go through /social/module_settings/<project_id>.
+            incoming_personalization = {
+                k: v for k, v in (data['personalization'] or {}).items()
+                if k not in MODULE_TOGGLE_FIELDS
+            }
             user.personalization = self._merge_personalization(
-                user.personalization, data['personalization'] or {},
+                user.personalization, incoming_personalization,
             )
         if 'default_context_management' in data:
             user.default_context_management = data['default_context_management']
