@@ -71,6 +71,9 @@ class Module(module.ModuleModel):
         from .models.users import User
         from .models.feedbacks import Feedback
         from .models.surveys import Survey, SurveyQuestion, SurveyAnswer
+        # Registers the per-project module-toggle table (#6285); provisioned into every project
+        # schema by the shared plugin's ready() via get_tenant_specific_metadata().
+        from .models.module_settings import UserProjectModuleSettings
         db.get_shared_metadata().create_all(bind=db.engine)
 
     def _register_permissions(self):
