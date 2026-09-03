@@ -48,3 +48,16 @@ def is_valid_folder_entity(entity_type: str) -> bool:
         return EntityType(entity_type) in FOLDER_ENTITY_TYPES
     except ValueError:
         return False
+
+
+# --- Folder-level permissions (#6524) ---
+
+# Capability guarding the folder-exception management endpoints. Admin-only in both modes.
+FOLDER_PERMISSIONS_MANAGE = 'social.folders.permissions.manage'
+
+# flask.g attribute holding the per-request restricted-folder memo
+FOLDER_ACCESS_MEMO_ATTR = '_social_folder_access_memo'
+
+# Audit event names fired on exception changes
+FOLDER_ACCESS_GRANTED_EVENT = 'folder_access_override_set'
+FOLDER_ACCESS_REVOKED_EVENT = 'folder_access_override_removed'

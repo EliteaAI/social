@@ -18,6 +18,9 @@ class FolderItem(db_tools.AbstractBaseMixin, db.Base):
     __table_args__ = (
         UniqueConstraint('folder_id', 'entity', 'entity_id',
                          name='_folder_item_entity_uc'),
+        # An entity lives in at most one folder per project (folders are Team-wide now)
+        UniqueConstraint('entity', 'entity_id', name='_folder_item_unique_entity_uc'),
+        Index('ix_folder_items_entity_lookup', 'entity', 'entity_id', 'folder_id'),
         Index('ix_folder_items_folder_sort', 'folder_id', 'sort_name'),
         Index('ix_folder_items_folder_entity', 'folder_id', 'entity', 'entity_id'),
         Index('ix_folder_items_owner', 'owner_id', 'entity'),
