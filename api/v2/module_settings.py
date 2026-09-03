@@ -7,7 +7,7 @@ from ...models.pd.module_settings import ModuleSettingsModel
 class ProjectApi(api_tools.APIModeHandler):
     @register_openapi(
         name="Get Project Module Settings",
-        description="Get the current user's default module-toggle settings scoped to a project (#6285).",
+        description="Get the current user's project-scoped settings (module toggles, mid-turn input) (#6285, #6303).",
         parameters=[
             {"name": "project_id", "in": "path", "required": True, "schema": {"type": "integer"}},
         ],
@@ -23,7 +23,7 @@ class ProjectApi(api_tools.APIModeHandler):
 
     @register_openapi(
         name="Update Project Module Settings",
-        description="Update the current user's default module-toggle settings scoped to a project (#6285).",
+        description="Update the current user's project-scoped settings (module toggles, mid-turn input) (#6285, #6303).",
         request_body=ModuleSettingsModel,
         parameters=[
             {"name": "project_id", "in": "path", "required": True, "schema": {"type": "integer"}},

@@ -2,7 +2,7 @@ from typing import List
 from pylon.core.tools import web, log
 from tools import auth, db
 
-from ..constants import MODULE_TOGGLE_FIELDS
+from ..constants import PROJECT_SCOPED_SETTINGS_FIELDS
 from ..models.pd.users import UserModel
 from ..models.module_settings import UserProjectModuleSettings
 from ..models.users import User
@@ -43,33 +43,47 @@ class RPC:
 
     @web.rpc("social_get_project_module_settings", "get_project_module_settings")
     def get_project_module_settings(self, user_id: int, project_id: int) -> dict:
-        # Per-project store first; falls back to the legacy global personalization blob
-        # (filtered to module-toggle keys) so existing users don't see toggles reset (#6285).
+        # Per-project store first; falls back per-key to the legacy global personalization blob
+        # (not just when the row is entirely absent) so a field added after a row already
+        # existed - e.g. midturn_injection_enabled riding in on top of #6285's rows - still
+        # inherits the user's prior global value instead of silently reading as False (#6303).
         with db.get_session(project_id) as session:
             row = session.query(UserProjectModuleSettings).filter(
                 UserProjectModuleSettings.user_id == user_id
             ).first()
-            if row and row.module_settings is not None:
-                return dict(row.module_settings)
+            stored = dict(row.module_settings) if row and row.module_settings is not None else {}
 
-        with db.get_session() as session:
-            legacy_user = session.query(User).filter(User.user_id == user_id).first()
-            legacy_personalization = (legacy_user.personalization or {}) if legacy_user else {}
+        missing_fields = [field for field in PROJECT_SCOPED_SETTINGS_FIELDS if field not in stored]
+        legacy_personalization = {}
+        if missing_fields:
+            with db.get_session() as session:
+                legacy_user = session.query(User).filter(User.user_id == user_id).first()
+                legacy_personalization = (legacy_user.personalization or {}) if legacy_user else {}
 
-        return {field: bool(legacy_personalization.get(field, False)) for field in MODULE_TOGGLE_FIELDS}
+        return {
+            field: bool(stored[field]) if field in stored else bool(legacy_personalization.get(field, False))
+            for field in PROJECT_SCOPED_SETTINGS_FIELDS
+        }
 
     @web.rpc("social_set_project_module_settings", "set_project_module_settings")
     def set_project_module_settings(self, user_id: int, project_id: int, module_settings: dict) -> dict:
-        clean_settings = {
-            field: bool((module_settings or {}).get(field, False)) for field in MODULE_TOGGLE_FIELDS
+        # Merge onto whatever is already stored instead of replacing it wholesale, so a caller
+        # that only sends a subset of fields (the API already allows this via
+        # ModuleSettingsModel's all-Optional fields + exclude_none) doesn't reset every
+        # unmentioned toggle back to False.
+        incoming = {
+            field: bool(module_settings[field])
+            for field in PROJECT_SCOPED_SETTINGS_FIELDS
+            if field in (module_settings or {})
         }
         with db.get_session(project_id) as session:
             row = session.query(UserProjectModuleSettings).filter(
                 UserProjectModuleSettings.user_id == user_id
             ).first()
             if row:
-                row.module_settings = clean_settings
+                row.module_settings = {**(row.module_settings or {}), **incoming}
             else:
-                session.add(UserProjectModuleSettings(user_id=user_id, module_settings=clean_settings))
+                row = UserProjectModuleSettings(user_id=user_id, module_settings=incoming)
+                session.add(row)
             session.commit()
-        return clean_settings
+        return self.get_project_module_settings(user_id, project_id)
