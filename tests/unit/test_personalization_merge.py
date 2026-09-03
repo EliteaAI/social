@@ -1,10 +1,34 @@
-"""Unit tests for per-persona personalization merge/hydrate logic (#5392).
+"""Unit tests for per-persona personalization merge/hydrate logic (#5392, #6285, #6303).
 
 These mirror api/v2/author.py::_merge_personalization and _hydrate_personalization. author.py
 imports flask/tools at module load, so the pure logic is copied here (kept byte-identical to the
 source) rather than importing the module. Guards the highest-severity rollout bug: a legacy-shaped
 PUT must never wipe personas it didn't send.
 """
+# Mirror of constants.py::PROJECT_SCOPED_SETTINGS_FIELDS — keep in sync.
+_PROJECT_SCOPED_SETTINGS_FIELDS = (
+    'default_internal_mcp_enabled',
+    'default_skill_builder_enabled',
+    'default_project_context_builder_enabled',
+    'default_ask_user_enabled',
+    'default_image_generation_enabled',
+    'default_data_analysis_enabled',
+    'default_planner_enabled',
+    'default_pyodide_enabled',
+    'default_swarm_enabled',
+    'default_lazy_tools_mode_enabled',
+    'default_agent_internal_mcp_enabled',
+    'default_agent_skill_builder_enabled',
+    'default_agent_project_context_builder_enabled',
+    'default_agent_ask_user_enabled',
+    'default_agent_image_generation_enabled',
+    'default_agent_data_analysis_enabled',
+    'default_agent_planner_enabled',
+    'default_agent_pyodide_enabled',
+    'default_agent_swarm_enabled',
+    'default_agent_lazy_tools_mode_enabled',
+    'midturn_injection_enabled',
+)
 
 
 def _hydrate_personalization(personalization):
@@ -19,6 +43,8 @@ def _hydrate_personalization(personalization):
         if result.get('default_instructions'):
             instructions_map[persona] = result['default_instructions']
     result['personality_instructions'] = instructions_map
+    for field in _PROJECT_SCOPED_SETTINGS_FIELDS:
+        result.pop(field, None)
     return result
 
 

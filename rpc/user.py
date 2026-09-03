@@ -2,7 +2,7 @@ from typing import List
 from pylon.core.tools import web, log
 from tools import auth, db
 
-from ..constants import MODULE_TOGGLE_FIELDS
+from ..constants import PROJECT_SCOPED_SETTINGS_FIELDS
 from ..models.pd.users import UserModel
 from ..models.module_settings import UserProjectModuleSettings
 from ..models.users import User
@@ -56,12 +56,12 @@ class RPC:
             legacy_user = session.query(User).filter(User.user_id == user_id).first()
             legacy_personalization = (legacy_user.personalization or {}) if legacy_user else {}
 
-        return {field: bool(legacy_personalization.get(field, False)) for field in MODULE_TOGGLE_FIELDS}
+        return {field: bool(legacy_personalization.get(field, False)) for field in PROJECT_SCOPED_SETTINGS_FIELDS}
 
     @web.rpc("social_set_project_module_settings", "set_project_module_settings")
     def set_project_module_settings(self, user_id: int, project_id: int, module_settings: dict) -> dict:
         clean_settings = {
-            field: bool((module_settings or {}).get(field, False)) for field in MODULE_TOGGLE_FIELDS
+            field: bool((module_settings or {}).get(field, False)) for field in PROJECT_SCOPED_SETTINGS_FIELDS
         }
         with db.get_session(project_id) as session:
             row = session.query(UserProjectModuleSettings).filter(

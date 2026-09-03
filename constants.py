@@ -4,9 +4,9 @@ from .models.enums.entity import EntityType, FOLDER_ENTITY_TYPES
 PROMPT_LIB_MODE = 'prompt_lib'
 
 
-# Module-toggle fields (#6285): served via project-scoped module_settings API/RPCs, not the
-# legacy global social_users.personalization blob.
-MODULE_TOGGLE_FIELDS = (
+# Project-scoped settings fields (#6285, #6303): served via project-scoped module_settings
+# API/RPCs, not the legacy global social_users.personalization blob.
+PROJECT_SCOPED_SETTINGS_FIELDS = (
     'default_internal_mcp_enabled',
     'default_skill_builder_enabled',
     'default_project_context_builder_enabled',
@@ -27,6 +27,7 @@ MODULE_TOGGLE_FIELDS = (
     'default_agent_pyodide_enabled',
     'default_agent_swarm_enabled',
     'default_agent_lazy_tools_mode_enabled',
+    'midturn_injection_enabled',
 )
 
 

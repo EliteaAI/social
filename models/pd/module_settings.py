@@ -23,6 +23,7 @@ class ModuleSettingsModel(BaseModel):
     default_agent_pyodide_enabled: Optional[bool] = None
     default_agent_swarm_enabled: Optional[bool] = None
     default_agent_lazy_tools_mode_enabled: Optional[bool] = None
+    midturn_injection_enabled: Optional[bool] = None
 
     class Config:
         orm_mode = True
