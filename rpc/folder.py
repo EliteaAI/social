@@ -1,4 +1,4 @@
-from typing import Optional, List
+from typing import Optional, List, Union
 from pydantic import ValidationError
 from sqlalchemy import func
 
@@ -8,9 +8,36 @@ from tools import serialize
 
 from ..models.folders import EntityFolder
 from ..models.folder_items import FolderItem
+from ..models.folder_access import FolderAccessOverride
 from ..models.pd.folders import EntityFolderCreate, EntityFolderDetails, FolderItemDetails
 from ..models.enums.entity import EntityType, FOLDER_ENTITY_TYPES
+from ..models.enums.folder_access import EffectiveFolderAccess
 from ..constants import is_valid_folder_entity
+
+
+NO_ACCESS_ERROR = 'Folder not found or you don\'t have permission'
+READ_ONLY_ERROR = 'You have read-only access to this folder'
+
+
+def _name_taken(session, entity_type: str, name: str, exclude_id: int = None) -> bool:
+    """Case-insensitive folder-name collision inside one entity type."""
+    q = session.query(EntityFolder.id).filter(
+        EntityFolder.entity_type == entity_type,
+        func.lower(EntityFolder.name) == (name or '').strip().lower()
+    )
+    if exclude_id:
+        q = q.filter(EntityFolder.id != exclude_id)
+    return session.query(q.exists()).scalar()
+
+
+def _deny_write(module, project_id: int, folder_id: int, user_id: Optional[int]):
+    """None when the write is allowed, else the error payload to return."""
+    level = module.resolve_folder_access(project_id, folder_id, user_id)
+    if level == EffectiveFolderAccess.no_access.value:
+        return {'ok': False, 'error': NO_ACCESS_ERROR}
+    if level == EffectiveFolderAccess.read_only.value:
+        return {'ok': False, 'error': READ_ONLY_ERROR}
+    return None
 
 
 class RPC:
@@ -23,7 +50,7 @@ class RPC:
             user_id: int = None,
             meta: dict = None
     ) -> dict:
-        """Create a folder for organizing entities."""
+        """Create a folder for organizing entities. Folders are shared across the project."""
         if not user_id:
             user_id = auth.current_user().get("id")
 
@@ -38,6 +65,11 @@ class RPC:
             return {'ok': False, 'error': str(e)}
 
         with db.get_session(project_id) as session:
+            if _name_taken(session, entity_type, parsed.name):
+                return {
+                    'ok': False,
+                    'error': f"A '{entity_type}' folder named '{parsed.name}' already exists"
+                }
             folder = EntityFolder(**parsed.model_dump())
             session.add(folder)
             session.commit()
@@ -55,41 +87,72 @@ class RPC:
             query: str = None,
             include_counts: bool = False
     ) -> list[dict]:
-        """List folders for an entity type with optional entity counts."""
+        """List project folders for an entity type, hiding the caller's no-access folders."""
         if not user_id:
             user_id = auth.current_user().get("id")
 
+        restricted = set(self.get_restricted_folder_ids(project_id, entity_type, user_id))
+        read_only = set(self.get_restricted_folder_ids(
+            project_id, entity_type, user_id,
+            levels=[EffectiveFolderAccess.read_only.value],
+        ))
+
         with db.get_session(project_id) as session:
             q = session.query(EntityFolder).filter(
-                EntityFolder.owner_id == user_id,
                 EntityFolder.entity_type == entity_type
             )
             if query:
                 q = q.filter(EntityFolder.name.ilike(f'%{query}%'))
+            if restricted:
+                q = q.filter(EntityFolder.id.notin_(restricted))
 
             folders = q.order_by(EntityFolder.name).all()
-            result = []
+            if not folders:
+                return []
 
+            counts = {}
+            if include_counts:
+                rows = session.query(
+                    FolderItem.folder_id, func.count(FolderItem.id)
+                ).filter(
+                    FolderItem.folder_id.in_([f.id for f in folders])
+                ).group_by(FolderItem.folder_id).all()
+                counts = dict(rows)
+
+            result = []
             for f in folders:
                 folder_data = serialize(EntityFolderDetails.model_validate(f))
                 if include_counts:
-                    count = session.query(func.count(FolderItem.id)).filter(
-                        FolderItem.folder_id == f.id
-                    ).scalar()
-                    folder_data['entities_count'] = count
+                    folder_data['entities_count'] = counts.get(f.id, 0)
+                folder_data['access_level'] = (
+                    EffectiveFolderAccess.read_only.value if f.id in read_only
+                    else EffectiveFolderAccess.full.value
+                )
                 result.append(folder_data)
 
             return result
 
     @web.rpc('social_get_folder', 'get_folder')
-    def get_folder(self, project_id: int, folder_id: int, include_count: bool = False) -> Optional[dict]:
-        """Get a single folder by ID."""
+    def get_folder(
+            self,
+            project_id: int,
+            folder_id: int,
+            include_count: bool = False,
+            user_id: Optional[int] = None
+    ) -> Optional[dict]:
+        """Get a single project folder by ID, subject to the caller's folder access."""
+        if not self.assert_folder_access(project_id, folder_id, user_id=user_id):
+            return None
+
         with db.get_session(project_id) as session:
             folder = session.query(EntityFolder).filter(
                 EntityFolder.id == folder_id
             ).first()
             if folder:
                 result = serialize(EntityFolderDetails.model_validate(folder))
+                result['access_level'] = self.resolve_folder_access(
+                    project_id, folder_id, user_id
+                )
                 if include_count:
                     count = session.query(func.count(FolderItem.id)).filter(
                         FolderItem.folder_id == folder_id
@@ -104,9 +167,14 @@ class RPC:
             project_id: int,
             folder_id: int,
             name: str = None,
-            meta: dict = None
+            meta: dict = None,
+            user_id: Optional[int] = None
     ) -> dict:
         """Update folder name or metadata."""
+        denied = _deny_write(self, project_id, folder_id, user_id)
+        if denied:
+            return denied
+
         with db.get_session(project_id) as session:
             folder = session.query(EntityFolder).filter(
                 EntityFolder.id == folder_id
@@ -114,7 +182,12 @@ class RPC:
             if not folder:
                 return {'ok': False, 'error': 'Folder not found'}
 
-            if name is not None:
+            if name is not None and name != folder.name:
+                if _name_taken(session, folder.entity_type, name, exclude_id=folder_id):
+                    return {
+                        'ok': False,
+                        'error': f"A '{folder.entity_type}' folder named '{name}' already exists"
+                    }
                 folder.name = name
             if meta is not None:
                 folder.meta = meta
@@ -126,8 +199,18 @@ class RPC:
             }
 
     @web.rpc('social_pin_folder', 'pin_folder')
-    def pin_folder(self, project_id: int, folder_id: int, is_pinned: bool) -> dict:
+    def pin_folder(
+            self,
+            project_id: int,
+            folder_id: int,
+            is_pinned: bool,
+            user_id: Optional[int] = None
+    ) -> dict:
         """Update folder pin status in meta field."""
+        denied = _deny_write(self, project_id, folder_id, user_id)
+        if denied:
+            return denied
+
         with db.get_session(project_id) as session:
             folder = session.query(EntityFolder).filter(
                 EntityFolder.id == folder_id
@@ -146,8 +229,17 @@ class RPC:
             }
 
     @web.rpc('social_delete_folder', 'delete_folder')
-    def delete_folder(self, project_id: int, folder_id: int) -> dict:
-        """Delete a folder and all its folder items."""
+    def delete_folder(
+            self,
+            project_id: int,
+            folder_id: int,
+            user_id: Optional[int] = None
+    ) -> dict:
+        """Delete a folder, its folder items and its access exceptions."""
+        denied = _deny_write(self, project_id, folder_id, user_id)
+        if denied:
+            return denied
+
         with db.get_session(project_id) as session:
             folder = session.query(EntityFolder).filter(
                 EntityFolder.id == folder_id
@@ -155,10 +247,13 @@ class RPC:
             if not folder:
                 return {'ok': False, 'error': 'Folder not found'}
 
-            # Delete all folder items first
             session.query(FolderItem).filter(
                 FolderItem.folder_id == folder_id
-            ).delete()
+            ).delete(synchronize_session=False)
+
+            session.query(FolderAccessOverride).filter(
+                FolderAccessOverride.folder_id == folder_id
+            ).delete(synchronize_session=False)
 
             session.delete(folder)
             session.commit()
@@ -276,13 +371,24 @@ class RPC:
         if not entity_check['exists']:
             return {'ok': False, 'error': f'{entity_type.capitalize()} not found'}
 
+        # Leaving a folder requires write access on that folder too
+        current = self.get_entity_folder(project_id, entity_type, entity_id, user_id)
+        if current:
+            denied = _deny_write(self, project_id, current['id'], user_id)
+            if denied:
+                return denied
+
+        if folder_id is not None:
+            denied = _deny_write(self, project_id, folder_id, user_id)
+            if denied:
+                return denied
+
         with db.get_session(project_id) as session:
-            # Remove existing folder membership for this entity
+            # Remove existing folder membership for this entity (project-wide)
             session.query(FolderItem).filter(
                 FolderItem.entity == entity_type,
-                FolderItem.entity_id == entity_id,
-                FolderItem.owner_id == user_id
-            ).delete()
+                FolderItem.entity_id == entity_id
+            ).delete(synchronize_session=False)
 
             # If folder_id is None, just remove (already done above)
             if folder_id is None:
@@ -295,14 +401,12 @@ class RPC:
                     'folder_id': None
                 }
 
-            # Verify folder exists and belongs to user
             folder = session.query(EntityFolder).filter(
-                EntityFolder.id == folder_id,
-                EntityFolder.owner_id == user_id
+                EntityFolder.id == folder_id
             ).first()
             if not folder:
                 session.rollback()
-                return {'ok': False, 'error': 'Folder not found or you don\'t have permission'}
+                return {'ok': False, 'error': NO_ACCESS_ERROR}
 
             # Verify folder entity_type matches
             if folder.entity_type != entity_type:
@@ -352,14 +456,15 @@ class RPC:
         if not user_id:
             user_id = auth.current_user().get("id")
 
+        if not self.assert_folder_access(project_id, folder_id, user_id=user_id):
+            return {'ok': False, 'error': NO_ACCESS_ERROR}
+
         with db.get_session(project_id) as session:
-            # Verify folder exists and belongs to user
             folder = session.query(EntityFolder).filter(
-                EntityFolder.id == folder_id,
-                EntityFolder.owner_id == user_id
+                EntityFolder.id == folder_id
             ).first()
             if not folder:
-                return {'ok': False, 'error': 'Folder not found or you don\'t have permission'}
+                return {'ok': False, 'error': NO_ACCESS_ERROR}
 
             # Build query
             q = session.query(FolderItem).filter(
@@ -389,6 +494,7 @@ class RPC:
                 'ok': True,
                 'folder_id': folder_id,
                 'entity_type': folder.entity_type,
+                'access_level': self.resolve_folder_access(project_id, folder_id, user_id),
                 'total': total,
                 'limit': limit,
                 'offset': offset,
@@ -411,14 +517,10 @@ class RPC:
             user_id: Optional[int] = None
     ) -> Optional[dict]:
         """Get the folder an entity belongs to (if any)."""
-        if not user_id:
-            user_id = auth.current_user().get("id")
-
         with db.get_session(project_id) as session:
             item = session.query(FolderItem).filter(
                 FolderItem.entity == entity_type,
-                FolderItem.entity_id == entity_id,
-                FolderItem.owner_id == user_id
+                FolderItem.entity_id == entity_id
             ).first()
 
             if not item:
@@ -436,22 +538,23 @@ class RPC:
     def get_entities_folder_info_bulk(
             self,
             project_id: int,
-            entity_type: str,
+            entity_type: Union[str, List[str]],
             entity_ids: List[int],
             user_id: Optional[int] = None
     ) -> dict:
         """Get folder info for multiple entities in bulk.
+
+        `entity_type` accepts a list so mixed listings (agent + pipeline) need one call.
 
         Returns a dict mapping entity_id to folder info:
         {entity_id: {'folder_id': int, 'folder_name': str}, ...}
 
         Entities not in any folder are not included in the result.
         """
-        if not user_id:
-            user_id = auth.current_user().get("id")
-
         if not entity_ids:
             return {}
+
+        types = [entity_type] if isinstance(entity_type, str) else list(entity_type)
 
         with db.get_session(project_id) as session:
             results = session.query(
@@ -461,9 +564,8 @@ class RPC:
             ).join(
                 EntityFolder, EntityFolder.id == FolderItem.folder_id
             ).filter(
-                FolderItem.entity == entity_type,
-                FolderItem.entity_id.in_(entity_ids),
-                FolderItem.owner_id == user_id
+                FolderItem.entity.in_(types),
+                FolderItem.entity_id.in_(entity_ids)
             ).all()
 
             return {
@@ -478,16 +580,22 @@ class RPC:
     def remove_entity_from_folders(
             self,
             project_id: int,
-            entity_type: str,
+            entity_type: Union[str, List[str]],
             entity_id: int
     ) -> dict:
-        """Remove an entity from all folders. Called on entity deletion."""
+        """Remove an entity from all folders. Called on entity deletion.
+
+        `entity_type` accepts a list so a deletion handler that cannot cheaply tell the
+        concrete type apart (agent vs pipeline, toolkit vs mcp) still clears the row:
+        entity ids are unique inside the underlying table.
+        """
+        types = [entity_type] if isinstance(entity_type, str) else list(entity_type)
         with db.get_session(project_id) as session:
             deleted = session.query(FolderItem).filter(
-                FolderItem.entity == entity_type,
+                FolderItem.entity.in_(types),
                 FolderItem.entity_id == entity_id,
                 FolderItem.project_id == project_id
-            ).delete()
+            ).delete(synchronize_session=False)
             session.commit()
 
             return {'ok': True, 'deleted': deleted}

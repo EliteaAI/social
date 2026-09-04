@@ -1,8 +1,16 @@
 """Pytest configuration - auto-mark tests based on directory."""
 import pathlib
+import sys
+
 import pytest
 
 PLUGIN_ROOT = pathlib.Path(__file__).resolve().parent.parent
+TESTS_DIR = pathlib.Path(__file__).resolve().parent
+
+# `--import-mode=importlib` does not put the tests dir on sys.path, so `stubs.*` /
+# `fixtures.*` would only import when run through run_tests.py.
+if str(TESTS_DIR) not in sys.path:
+    sys.path.insert(0, str(TESTS_DIR))
 
 
 @pytest.fixture(scope="session")

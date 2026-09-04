@@ -15,9 +15,9 @@ class Event:
       - project_id is passed as 'owner_id', NOT 'project_id'
     - configuration_deleted: ConfigurationDetails.model_dump()
       - has both 'id' and 'project_id'
+    - skill_deleted: {'id': ..., 'name': ..., 'project_id': ...}
 
-    NOTE: skill_deleted event does not exist in elitea_core yet.
-    Skill folder items will need manual cleanup or the event needs to be added.
+    Also purges folder access exceptions (#6524) when a user leaves the project.
     """
 
     @web.event("application_deleted")
@@ -25,7 +25,6 @@ class Event:
         """Clean up folder items when an application (agent/pipeline) is deleted.
 
         Payload is ApplicationDetailModel.model_dump() with project_id added.
-        The agent_type ('pipeline' vs 'openai'/etc) is nested in version_details.
         """
         project_id = payload.get('project_id')
         app_id = payload.get('id')
@@ -33,25 +32,22 @@ class Event:
         if not project_id or not app_id:
             return
 
-        # agent_type is nested in version_details, not at top level
-        version_details = payload.get('version_details', {}) or {}
-        agent_type = version_details.get('agent_type', '')
-
-        # Map: 'pipeline' -> pipeline folder, anything else -> agent folder
-        entity_type = EntityType.pipeline.value if agent_type == 'pipeline' else EntityType.agent.value
+        # agent_type lives in version_details and is absent when the deleted app had no
+        # default version, so both types are cleared: application ids are unique.
+        entity_types = [EntityType.agent.value, EntityType.pipeline.value]
 
         try:
             result = self.remove_entity_from_folders(
                 project_id=project_id,
-                entity_type=entity_type,
+                entity_type=entity_types,
                 entity_id=app_id
             )
             if result.get('deleted', 0) > 0:
-                log.info("Cleaned up %s folder items for deleted %s %s",
-                         result['deleted'], entity_type, app_id)
+                log.info("Cleaned up %s folder items for deleted application %s",
+                         result['deleted'], app_id)
         except Exception as e:
-            log.warning("Failed to clean up folder items for %s %s: %s",
-                        entity_type, app_id, e)
+            log.warning("Failed to clean up folder items for application %s: %s",
+                        app_id, e)
 
     @web.event("toolkit_deleted")
     def on_toolkit_deleted(self, context, event, payload):
@@ -60,29 +56,28 @@ class Event:
         Payload is ToolDetails.dict() with owner_id set to project_id.
         NOTE: The event passes project_id as 'owner_id', not 'project_id'.
         """
-        # toolkit_deleted passes project_id as 'owner_id'
         project_id = payload.get('owner_id')
         tool_id = payload.get('id')
-        tool_type = payload.get('type', '')  # 'mcp' for MCP servers
 
         if not project_id or not tool_id:
             return
 
-        # Map toolkit type to entity type
-        entity_type = EntityType.mcp.value if tool_type == 'mcp' else EntityType.toolkit.value
+        # Local MCPs are flagged by meta.mcp rather than type='mcp', so both types are
+        # cleared instead of re-deriving the distinction: toolkit ids are unique.
+        entity_types = [EntityType.toolkit.value, EntityType.mcp.value]
 
         try:
             result = self.remove_entity_from_folders(
                 project_id=project_id,
-                entity_type=entity_type,
+                entity_type=entity_types,
                 entity_id=tool_id
             )
             if result.get('deleted', 0) > 0:
-                log.info("Cleaned up %s folder items for deleted %s %s",
-                         result['deleted'], entity_type, tool_id)
+                log.info("Cleaned up %s folder items for deleted toolkit %s",
+                         result['deleted'], tool_id)
         except Exception as e:
-            log.warning("Failed to clean up folder items for %s %s: %s",
-                        entity_type, tool_id, e)
+            log.warning("Failed to clean up folder items for toolkit %s: %s",
+                        tool_id, e)
 
     @web.event("skill_deleted")
     def on_skill_deleted(self, context, event, payload):
@@ -111,6 +106,32 @@ class Event:
         except Exception as e:
             log.warning("Failed to clean up folder items for skill %s: %s",
                         skill_id, e)
+
+    @web.event("user_removed_from_project")
+    def on_user_removed_from_project(self, context, event, payload):
+        """Drop folder access exceptions of users who left the project (#6524).
+
+        Payload: {'project_id': int, 'user_ids': [int, ...]}. A non-member cannot reach
+        the project at all, so the rows are dead weight that would silently re-apply if
+        the user were ever re-invited.
+        """
+        project_id = payload.get('project_id')
+        user_ids = payload.get('user_ids') or []
+
+        if not project_id or not user_ids:
+            return
+
+        try:
+            result = self.purge_user_folder_access(
+                project_id=project_id,
+                user_ids=[int(i) for i in user_ids]
+            )
+            if result.get('deleted', 0) > 0:
+                log.info("Purged %s folder access exceptions in project %s for users %s",
+                         result['deleted'], project_id, user_ids)
+        except Exception as e:
+            log.warning("Failed to purge folder access for users %s in project %s: %s",
+                        user_ids, project_id, e)
 
     @web.event("configuration_deleted")
     def on_configuration_deleted(self, context, event, payload):

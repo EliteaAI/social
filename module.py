@@ -74,6 +74,11 @@ class Module(module.ModuleModel):
         # Registers the per-project module-toggle table (#6285); provisioned into every project
         # schema by the shared plugin's ready() via get_tenant_specific_metadata().
         from .models.module_settings import UserProjectModuleSettings
+        # Folder tables + per-user folder exceptions (#6524); tenant-scoped, provisioned
+        # by the shared plugin's ready() and reconciled by _apply_folder_migrations().
+        from .models.folders import EntityFolder
+        from .models.folder_items import FolderItem
+        from .models.folder_access import FolderAccessOverride
         db.get_shared_metadata().create_all(bind=db.engine)
 
     def _register_permissions(self):
@@ -115,6 +120,13 @@ class Module(module.ModuleModel):
                 c.ADMINISTRATION_MODE: {"admin": True, "editor": True, "viewer": False},
                 c.DEFAULT_MODE: {"admin": True, "editor": True, "viewer": False},
             }})
+        # Managing folder-level exceptions is an admin-only capability (#6524)
+        auth.register_permissions({
+            "permissions": ["social.folders.permissions.manage"],
+            "recommended_roles": {
+                c.ADMINISTRATION_MODE: {"admin": True, "editor": False, "viewer": False},
+                c.DEFAULT_MODE: {"admin": True, "editor": False, "viewer": False},
+            }})
         # NOTE: end-user survey endpoints (active / response / shown / dismiss) are login-only
         # (authenticated via the forward-auth proxy, keyed by user_id) and are not project-scoped,
         # so they use @api_tools.endpoint_metrics without check_api — no extra permission needed.
@@ -153,6 +165,38 @@ class Module(module.ModuleModel):
                 log.info("Seeded default 'NPS Elitea' survey")
         except Exception as e:  # pylint: disable=W0703
             log.warning("Failed to seed default NPS survey: %s", e)
+
+    def ready(self):
+        """ Ready callback """
+        self._apply_folder_migrations()
+
+    def _apply_folder_migrations(self):
+        """Reconcile folder tables in every project schema (indexes, constraints, dedup)."""
+        from tools import project_constants  # pylint: disable=E0401,C0415
+        from .utils.folder_migrations import apply_folder_migrations  # pylint: disable=C0415
+        #
+        try:
+            projects = self.context.rpc_manager.timeout(120).project_list(
+                filter_={"create_success": True},
+            )
+        except Exception as e:  # pylint: disable=W0703
+            log.warning("Cannot list projects for folder migrations: %s", e)
+            return
+        #
+        schema_template = project_constants["PROJECT_SCHEMA_TEMPLATE"]
+        for project in projects:
+            project_id = project["id"]
+            try:
+                stats = apply_folder_migrations(
+                    project_id, schema_template.format(project_id)
+                )
+                if stats["deduped"] or stats["orphans"]:
+                    log.info(
+                        "Folder cleanup for project %s: %s duplicates, %s orphans removed",
+                        project_id, stats["deduped"], stats["orphans"],
+                    )
+            except Exception as e:  # pylint: disable=W0703
+                log.warning("Folder migrations failed for project %s: %s", project_id, e)
 
     def deinit(self):  # pylint: disable=R0201
         """ De-init module """
