@@ -75,7 +75,7 @@ class Module(module.ModuleModel):
         # schema by the shared plugin's ready() via get_tenant_specific_metadata().
         from .models.module_settings import UserProjectModuleSettings
         # Folder tables + per-user folder exceptions (#6524); tenant-scoped, provisioned
-        # by the shared plugin's ready() and reconciled by _apply_folder_migrations().
+        # into every project schema by the shared plugin's ready().
         from .models.folders import EntityFolder
         from .models.folder_items import FolderItem
         from .models.folder_access import FolderAccessOverride
@@ -168,35 +168,19 @@ class Module(module.ModuleModel):
 
     def ready(self):
         """ Ready callback """
-        self._apply_folder_migrations()
+        self._register_admin_tasks()
 
-    def _apply_folder_migrations(self):
-        """Reconcile folder tables in every project schema (indexes, constraints, dedup)."""
-        from tools import project_constants  # pylint: disable=E0401,C0415
-        from .utils.folder_migrations import apply_folder_migrations  # pylint: disable=C0415
+    def _register_admin_tasks(self):
+        """Expose folder index reconciliation as an on-demand admin task (#6524)."""
+        from tools import this  # pylint: disable=E0401,C0415
+        from .utils.folder_migrations import migrate_folder_indexes  # pylint: disable=C0415
         #
         try:
-            projects = self.context.rpc_manager.timeout(120).project_list(
-                filter_={"create_success": True},
+            this.for_module("admin").module.register_admin_task(
+                "migrate_folder_indexes", migrate_folder_indexes, group="R-2.0.6"
             )
         except Exception as e:  # pylint: disable=W0703
-            log.warning("Cannot list projects for folder migrations: %s", e)
-            return
-        #
-        schema_template = project_constants["PROJECT_SCHEMA_TEMPLATE"]
-        for project in projects:
-            project_id = project["id"]
-            try:
-                stats = apply_folder_migrations(
-                    project_id, schema_template.format(project_id)
-                )
-                if stats["deduped"] or stats["orphans"]:
-                    log.info(
-                        "Folder cleanup for project %s: %s duplicates, %s orphans removed",
-                        project_id, stats["deduped"], stats["orphans"],
-                    )
-            except Exception as e:  # pylint: disable=W0703
-                log.warning("Folder migrations failed for project %s: %s", project_id, e)
+            log.warning("Failed to register social admin tasks: %s", e)
 
     def deinit(self):  # pylint: disable=R0201
         """ De-init module """
