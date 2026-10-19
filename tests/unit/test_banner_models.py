@@ -60,6 +60,11 @@ class TestBannerModel:
             banners_module.BannerModel(name="B", message="M", style="error")
         assert "style must be one of" in str(exc_info.value)
 
+    def test_all_icons_valid(self, banners_module):
+        for icon in ("info", "warning", "none"):
+            b = banners_module.BannerModel(name="B", message="M", icon=icon)
+            assert b.icon == icon
+
     def test_invalid_icon_raises(self, banners_module):
         with pytest.raises(ValidationError) as exc_info:
             banners_module.BannerModel(name="B", message="M", icon="danger")
@@ -105,6 +110,7 @@ class TestApplyBannerUpdate:
         ("placement", "center"),
         ("style", "warning"),
         ("icon", "warning"),
+        ("icon", "none"),
     ])
     def test_display_change_requires_version_bump(self, banners_module, field, value):
         banner = _stored_banner()

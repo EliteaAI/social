@@ -5,7 +5,8 @@ from pydantic.v1 import BaseModel, validator
 # EliteaUI renders exactly these values (and falls back for anything else): adding one needs a frontend change
 BANNER_PLACEMENTS = ("top", "center", "bottom_right")
 BANNER_STYLES = ("info", "warning")
-BANNER_ICONS = ("info", "warning")
+# "none" hides the icon. A string, not NULL: the column is NOT NULL and updates treat None as "not provided"
+BANNER_ICONS = ("info", "warning", "none")
 
 BANNER_FIELDS = (
     "name", "message", "enabled", "dismissible", "persist_dismissal",
