@@ -8,6 +8,7 @@ class ModuleSettingsModel(BaseModel):
     default_project_context_builder_enabled: Optional[bool] = None
     default_ask_user_enabled: Optional[bool] = None
     default_image_generation_enabled: Optional[bool] = None
+    default_web_search_enabled: Optional[bool] = None
     default_data_analysis_enabled: Optional[bool] = None
     default_planner_enabled: Optional[bool] = None
     default_pyodide_enabled: Optional[bool] = None
@@ -18,6 +19,7 @@ class ModuleSettingsModel(BaseModel):
     default_agent_project_context_builder_enabled: Optional[bool] = None
     default_agent_ask_user_enabled: Optional[bool] = None
     default_agent_image_generation_enabled: Optional[bool] = None
+    default_agent_web_search_enabled: Optional[bool] = None
     default_agent_data_analysis_enabled: Optional[bool] = None
     default_agent_planner_enabled: Optional[bool] = None
     default_agent_pyodide_enabled: Optional[bool] = None
