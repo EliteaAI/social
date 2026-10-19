@@ -66,11 +66,17 @@ class Module(module.ModuleModel):
         self._seed_default_survey()
 
     def init_db(self):
-        from tools import db
+        from sqlalchemy import inspect  # pylint: disable=C0415
+        from tools import db, config as c  # pylint: disable=E0401,C0415
+        # Legacy banner config is migrated only when the table is created, so deleting every
+        # banner later doesn't bring the old one back on restart (#6971)
+        self._banners_table_created = not inspect(db.engine).has_table(
+            "social_banners", schema=c.POSTGRES_SCHEMA)
         from .models.likes import Like
         from .models.users import User
         from .models.feedbacks import Feedback
         from .models.surveys import Survey, SurveyQuestion, SurveyAnswer
+        from .models.banners import Banner
         # Registers the per-project module-toggle table (#6285); provisioned into every project
         # schema by the shared plugin's ready() via get_tenant_specific_metadata().
         from .models.module_settings import UserProjectModuleSettings
@@ -92,6 +98,12 @@ class Module(module.ModuleModel):
         # Admin: view survey response reports (Reports menu)
         auth.register_permissions({
             "permissions": ["models.admin.surveys.reports.view"],
+            "recommended_roles": {
+                c.ADMINISTRATION_MODE: {"admin": True, "editor": False, "viewer": False},
+            }})
+        # Admin: manage platform banners (#6971)
+        auth.register_permissions({
+            "permissions": ["models.admin.banners.manage"],
             "recommended_roles": {
                 c.ADMINISTRATION_MODE: {"admin": True, "editor": False, "viewer": False},
             }})
@@ -166,9 +178,42 @@ class Module(module.ModuleModel):
         except Exception as e:  # pylint: disable=W0703
             log.warning("Failed to seed default NPS survey: %s", e)
 
+    def _seed_banner_from_legacy_config(self):
+        """Move the single config-based banner (elitea_core extra_ui_config) into social_banners once (#6971)."""
+        from tools import db, this  # pylint: disable=E0401,C0415
+        from .models.banners import Banner  # pylint: disable=C0415
+        if not getattr(self, "_banners_table_created", False):
+            return
+        try:
+            elitea_core_config = this.for_module("elitea_core").descriptor.config
+            legacy = (elitea_core_config.get("extra_ui_config") or {}).get("vite_maintenance_banner")
+            if not isinstance(legacy, dict) or not (legacy.get("message") or "").strip():
+                return
+            with db.with_project_schema_session(None) as session:
+                if session.query(Banner).first():
+                    return
+                style = legacy.get("style") if legacy.get("style") in ("info", "warning") else "info"
+                icon = legacy.get("icon") if legacy.get("icon") in ("info", "warning") else "info"
+                session.add(Banner(
+                    name="Banner",
+                    message=legacy["message"],
+                    enabled=bool(legacy.get("enabled", False)),
+                    dismissible=bool(legacy.get("dismissible", True)),
+                    persist_dismissal=True,
+                    placement="top",
+                    style=style,
+                    icon=icon,
+                    sort_order=0,
+                ))
+                session.commit()
+                log.info("Seeded platform banner from legacy elitea_core config")
+        except Exception as e:  # pylint: disable=W0703
+            log.warning("Failed to seed banner from legacy config: %s", e)
+
     def ready(self):
         """ Ready callback """
         self._register_admin_tasks()
+        self._seed_banner_from_legacy_config()
 
     def _register_admin_tasks(self):
         """Expose folder index reconciliation as an on-demand admin task (#6524)."""
