@@ -1,4 +1,4 @@
-from typing import Dict, Optional
+from typing import Dict, Literal, Optional
 from pydantic.v1 import BaseModel
 
 from pylon.core.tools import log
@@ -41,10 +41,12 @@ class PersonalizationModel(BaseModel):
 
 
 class ContextManagementModel(BaseModel):
+    # Deprecated (#6898): context management is always on; kept for stored rows and old clients
     enabled: Optional[bool] = None
     max_context_tokens: Optional[int] = None
     preserve_recent_messages: Optional[int] = None
     enable_context_editing: Optional[bool] = None
+    context_window_mode: Optional[Literal['balanced', 'full']] = None
 
     class Config:
         orm_mode = True
@@ -93,7 +95,7 @@ class UserUpdateModel(BaseModel):
                         "default_instructions": "Always use Python 3.12+ syntax."
                     },
                     "default_context_management": {
-                        "enabled": True,
+                        "context_window_mode": "balanced",
                         "max_context_tokens": 8000,
                         "preserve_recent_messages": 5
                     },
