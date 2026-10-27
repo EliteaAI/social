@@ -1,5 +1,5 @@
 from flask import g, request
-from tools import api_tools, register_openapi
+from tools import api_tools, auth, config as c, register_openapi
 
 from ...models.pd.module_settings import ModuleSettingsModel
 
@@ -13,6 +13,12 @@ class ProjectApi(api_tools.APIModeHandler):
         ],
         available_to_users=True,
     )
+    @auth.decorators.check_api({
+        "permissions": ["models.project_context.view"],
+        "recommended_roles": {
+            c.DEFAULT_MODE: {"admin": True, "editor": True, "viewer": True},
+        },
+    })
     @api_tools.endpoint_metrics
     def get(self, project_id: int, **kwargs):
         user = self.module.context.rpc_manager.timeout(2).auth_main_current_user(g.auth)
@@ -30,6 +36,12 @@ class ProjectApi(api_tools.APIModeHandler):
         ],
         available_to_users=True,
     )
+    @auth.decorators.check_api({
+        "permissions": ["models.project_context.edit"],
+        "recommended_roles": {
+            c.DEFAULT_MODE: {"admin": True, "editor": True, "viewer": False},
+        },
+    })
     @api_tools.endpoint_metrics
     def put(self, project_id: int, **kwargs):
         user = self.module.context.rpc_manager.timeout(2).auth_main_current_user(g.auth)
