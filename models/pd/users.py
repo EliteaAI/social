@@ -12,12 +12,6 @@ class PersonalizationModel(BaseModel):
     # Per-persona instructions keyed by persona value (generic/qa/nerdy/...). Left as None (not {})
     # so the API can detect "client did not send this key" via .dict(exclude_unset=True).
     personality_instructions: Optional[Dict[str, str]] = None
-    default_internal_mcp_enabled: Optional[bool] = None
-    default_skill_builder_enabled: Optional[bool] = None
-    default_project_context_builder_enabled: Optional[bool] = None
-    default_agent_internal_mcp_enabled: Optional[bool] = None
-    default_agent_skill_builder_enabled: Optional[bool] = None
-    default_agent_project_context_builder_enabled: Optional[bool] = None
     default_agent_ask_user_enabled: Optional[bool] = None
     midturn_injection_enabled: Optional[bool] = None
     default_ask_user_enabled: Optional[bool] = None
