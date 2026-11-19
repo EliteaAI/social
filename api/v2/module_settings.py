@@ -1,5 +1,5 @@
 from flask import g, request
-from tools import api_tools, auth, config as c, register_openapi
+from tools import api_tools, auth, register_openapi
 
 from ...models.pd.module_settings import ModuleSettingsModel
 
@@ -13,14 +13,10 @@ class ProjectApi(api_tools.APIModeHandler):
         ],
         available_to_users=True,
     )
-    @auth.decorators.check_api({
-        "permissions": ["models.project_context.view"],
-        "recommended_roles": {
-            c.DEFAULT_MODE: {"admin": True, "editor": True, "viewer": True},
-        },
-    })
     @api_tools.endpoint_metrics
     def get(self, project_id: int, **kwargs):
+        if not auth.is_user_in_project(project_id):
+            return {"error": "Access denied"}, 403
         user = self.module.context.rpc_manager.timeout(2).auth_main_current_user(g.auth)
         settings = self.module.context.rpc_manager.timeout(2).social_get_project_module_settings(
             user['id'], project_id,
@@ -36,14 +32,10 @@ class ProjectApi(api_tools.APIModeHandler):
         ],
         available_to_users=True,
     )
-    @auth.decorators.check_api({
-        "permissions": ["models.project_context.edit"],
-        "recommended_roles": {
-            c.DEFAULT_MODE: {"admin": True, "editor": True, "viewer": False},
-        },
-    })
     @api_tools.endpoint_metrics
     def put(self, project_id: int, **kwargs):
+        if not auth.is_user_in_project(project_id):
+            return {"error": "Access denied"}, 403
         user = self.module.context.rpc_manager.timeout(2).auth_main_current_user(g.auth)
         try:
             update_data = ModuleSettingsModel(**(request.json or {}))
