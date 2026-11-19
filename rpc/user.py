@@ -7,7 +7,7 @@ from ..models.pd.users import UserModel
 from ..models.module_settings import UserProjectModuleSettings
 from ..models.users import User
 from ..utils.module_settings import (
-    migrate_module_settings, resolve_builder_defaults,
+    migrate_module_settings, resolve_module_defaults,
 )
 
 
@@ -67,7 +67,7 @@ class RPC:
             field: bool(stored[field]) if field in stored else bool(legacy_personalization.get(field, False))
             for field in PROJECT_SCOPED_SETTINGS_FIELDS
         }
-        settings.update(resolve_builder_defaults(stored, legacy_personalization))
+        settings.update(resolve_module_defaults(stored, legacy_personalization))
         return settings
 
     @web.rpc("social_migrate_builder_module_settings", "migrate_builder_module_settings")

@@ -21,6 +21,9 @@ UNSET_DEFAULTS = {
     'default_agent_elitea_builder_enabled': False,
 }
 
+# Other modules on by default for Chats when the user never set them (#7383: the Builder asks through Ask User)
+UNSET_MODULE_DEFAULTS = {'default_ask_user_enabled': True}
+
 
 def _value(field: str, stored: dict, legacy: dict) -> bool:
     return bool(stored[field]) if field in stored else bool(legacy.get(field, False))
@@ -38,6 +41,16 @@ def resolve_builder_defaults(stored: dict, legacy: dict) -> dict:
             result[new_field] = any(_value(old, stored, legacy) for old in old_fields)
         else:
             result[new_field] = UNSET_DEFAULTS[new_field]
+    return result
+
+
+def resolve_module_defaults(stored: dict, legacy: dict) -> dict:
+    """Builder defaults plus the other modules that read as on when never set."""
+    stored = stored or {}
+    legacy = legacy or {}
+    result = resolve_builder_defaults(stored, legacy)
+    for field, default in UNSET_MODULE_DEFAULTS.items():
+        result[field] = bool(stored[field]) if field in stored else bool(legacy.get(field, default))
     return result
 
 

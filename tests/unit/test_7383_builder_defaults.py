@@ -84,3 +84,18 @@ class TestMigrateModuleSettings:
         new, changed = module_settings.migrate_module_settings(stored, {})
         assert changed is False
         assert new == stored
+
+
+class TestResolveModuleDefaults:
+
+    def test_ask_user_is_on_for_chats_when_never_set(self, module_settings):
+        assert module_settings.resolve_module_defaults({}, {})['default_ask_user_enabled'] is True
+
+    def test_ask_user_keeps_what_the_user_chose(self, module_settings):
+        assert module_settings.resolve_module_defaults({'default_ask_user_enabled': False}, {})[
+            'default_ask_user_enabled'] is False
+        assert module_settings.resolve_module_defaults({}, {'default_ask_user_enabled': False})[
+            'default_ask_user_enabled'] is False
+
+    def test_agents_ask_user_default_is_unchanged(self, module_settings):
+        assert 'default_agent_ask_user_enabled' not in module_settings.resolve_module_defaults({}, {})
