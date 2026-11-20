@@ -61,3 +61,28 @@ def migrate_module_settings(stored: dict, legacy: dict):
     if all(field in stored for field in BUILDER_DEFAULT_FIELDS):
         return stored, False
     return {**stored, **resolve_builder_defaults(stored, legacy)}, True
+
+
+# Release R-2.0.9 (#7383): Elitea Builder and Ask User on as default modules for every user, Chats and Agents
+ENABLED_DEFAULT_FIELDS = (
+    'default_elitea_builder_enabled', 'default_ask_user_enabled',
+    'default_agent_elitea_builder_enabled', 'default_agent_ask_user_enabled',
+)
+
+
+def enable_default_modules(settings: dict):
+    """Return (settings, changed): ``settings`` with every ENABLED_DEFAULT_FIELDS on; other keys kept."""
+    settings = settings or {}
+    if all(settings.get(field) is True for field in ENABLED_DEFAULT_FIELDS):
+        return settings, False
+    return {**settings, **{field: True for field in ENABLED_DEFAULT_FIELDS}}, True
+
+
+def enable_legacy_default_modules(personalization: dict):
+    """Return (personalization, changed): only fields already present are turned on, so a user with no legacy value
+    keeps reading the (on) unset default."""
+    personalization = personalization or {}
+    off = [field for field in ENABLED_DEFAULT_FIELDS if field in personalization and personalization[field] is not True]
+    if not off:
+        return personalization, False
+    return {**personalization, **{field: True for field in off}}, True

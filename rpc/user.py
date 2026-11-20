@@ -7,6 +7,7 @@ from ..models.pd.users import UserModel
 from ..models.module_settings import UserProjectModuleSettings
 from ..models.users import User
 from ..utils.module_settings import (
+    enable_default_modules, enable_legacy_default_modules,
     migrate_module_settings, resolve_module_defaults,
 )
 
@@ -94,6 +95,40 @@ class RPC:
                 updated += 1
                 if not dry_run:
                     row.module_settings = new_settings
+            if not dry_run:
+                session.commit()
+        return updated
+
+    @web.rpc("social_enable_builder_default_modules", "enable_builder_default_modules")
+    def enable_builder_default_modules(self, project_id: int, dry_run: bool = False) -> int:
+        """R-2.0.9 (#7383): Elitea Builder and Ask User on as Chats and Agents defaults for every stored row of a
+        project, whatever the user had set. Returns rows changed."""
+        updated = 0
+        with db.get_session(project_id) as session:
+            for row in session.query(UserProjectModuleSettings).all():
+                new_settings, changed = enable_default_modules(dict(row.module_settings or {}))
+                if not changed:
+                    continue
+                updated += 1
+                if not dry_run:
+                    row.module_settings = new_settings
+            if not dry_run:
+                session.commit()
+        return updated
+
+    @web.rpc("social_enable_legacy_builder_default_modules", "enable_legacy_builder_default_modules")
+    def enable_legacy_builder_default_modules(self, dry_run: bool = False) -> int:
+        """The same for the legacy global personalization a project without a stored row falls back to. Returns users
+        changed."""
+        updated = 0
+        with db.get_session() as session:
+            for user in session.query(User).all():
+                new_personalization, changed = enable_legacy_default_modules(dict(user.personalization or {}))
+                if not changed:
+                    continue
+                updated += 1
+                if not dry_run:
+                    user.personalization = new_personalization
             if not dry_run:
                 session.commit()
         return updated
