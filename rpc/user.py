@@ -6,6 +6,9 @@ from ..constants import PROJECT_SCOPED_SETTINGS_FIELDS
 from ..models.pd.users import UserModel
 from ..models.module_settings import UserProjectModuleSettings
 from ..models.users import User
+from ..utils.module_settings import (
+    migrate_module_settings, resolve_module_defaults,
+)
 
 
 class RPC:
@@ -60,10 +63,40 @@ class RPC:
                 legacy_user = session.query(User).filter(User.user_id == user_id).first()
                 legacy_personalization = (legacy_user.personalization or {}) if legacy_user else {}
 
-        return {
+        settings = {
             field: bool(stored[field]) if field in stored else bool(legacy_personalization.get(field, False))
             for field in PROJECT_SCOPED_SETTINGS_FIELDS
         }
+        settings.update(resolve_module_defaults(stored, legacy_personalization))
+        return settings
+
+    @web.rpc("social_migrate_builder_module_settings", "migrate_builder_module_settings")
+    def migrate_builder_module_settings(self, project_id: int, dry_run: bool = False) -> int:
+        """Fill the Elitea Builder defaults (#7383) into every stored row of a project. Returns rows changed."""
+        updated = 0
+        with db.get_session(project_id) as session:
+            rows = session.query(UserProjectModuleSettings).all()
+            legacy_by_user = {}
+            if rows:
+                with db.get_session() as legacy_session:
+                    legacy_by_user = {
+                        u.user_id: u.personalization or {}
+                        for u in legacy_session.query(User).filter(
+                            User.user_id.in_([r.user_id for r in rows])
+                        ).all()
+                    }
+            for row in rows:
+                new_settings, changed = migrate_module_settings(
+                    dict(row.module_settings or {}), legacy_by_user.get(row.user_id, {}),
+                )
+                if not changed:
+                    continue
+                updated += 1
+                if not dry_run:
+                    row.module_settings = new_settings
+            if not dry_run:
+                session.commit()
+        return updated
 
     @web.rpc("social_set_project_module_settings", "set_project_module_settings")
     def set_project_module_settings(self, user_id: int, project_id: int, module_settings: dict) -> dict:
