@@ -18,11 +18,12 @@ LEGACY_BUILDER_DEFAULT_FIELDS = frozenset(
 # What a column reads when the user never set it, neither the new key nor any old builder key (AC-5, AC-6)
 UNSET_DEFAULTS = {
     'default_elitea_builder_enabled': True,
-    'default_agent_elitea_builder_enabled': False,
+    'default_agent_elitea_builder_enabled': True,
 }
 
-# Other modules on by default for Chats when the user never set them (#7383: the Builder asks through Ask User)
-UNSET_MODULE_DEFAULTS = {'default_ask_user_enabled': True}
+# Other modules on by default for Chats and Agents when the user never set them (#7383: the Builder asks through
+# Ask User)
+UNSET_MODULE_DEFAULTS = {'default_ask_user_enabled': True, 'default_agent_ask_user_enabled': True}
 
 
 def _value(field: str, stored: dict, legacy: dict) -> bool:

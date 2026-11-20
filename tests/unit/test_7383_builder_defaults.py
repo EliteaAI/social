@@ -24,8 +24,8 @@ def module_settings():
 
 class TestResolveBuilderDefaults:
 
-    def test_nothing_stored_is_chats_on_agents_off(self, module_settings):
-        assert module_settings.resolve_builder_defaults({}, {}) == {CHATS: True, AGENTS: False}
+    def test_nothing_stored_is_chats_and_agents_on(self, module_settings):
+        assert module_settings.resolve_builder_defaults({}, {}) == {CHATS: True, AGENTS: True}
 
     def test_old_chats_defaults_all_explicitly_off_stays_off(self, module_settings):
         stored = {'default_internal_mcp_enabled': False}
@@ -40,7 +40,7 @@ class TestResolveBuilderDefaults:
         'default_project_context_builder_enabled',
     ])
     def test_any_old_chats_default_turns_chats_on(self, module_settings, old_key):
-        assert module_settings.resolve_builder_defaults({old_key: True}, {}) == {CHATS: True, AGENTS: False}
+        assert module_settings.resolve_builder_defaults({old_key: True}, {}) == {CHATS: True, AGENTS: True}
 
     @pytest.mark.parametrize('old_key', [
         'default_agent_internal_mcp_enabled',
@@ -97,5 +97,14 @@ class TestResolveModuleDefaults:
         assert module_settings.resolve_module_defaults({}, {'default_ask_user_enabled': False})[
             'default_ask_user_enabled'] is False
 
-    def test_agents_ask_user_default_is_unchanged(self, module_settings):
-        assert 'default_agent_ask_user_enabled' not in module_settings.resolve_module_defaults({}, {})
+    def test_agents_ask_user_is_on_when_never_set(self, module_settings):
+        assert module_settings.resolve_module_defaults({}, {})['default_agent_ask_user_enabled'] is True
+
+    def test_agents_keep_an_explicit_off(self, module_settings):
+        stored = {AGENTS: False, 'default_agent_ask_user_enabled': False}
+        resolved = module_settings.resolve_module_defaults(stored, {})
+        assert resolved[AGENTS] is False and resolved['default_agent_ask_user_enabled'] is False
+
+    def test_agents_keep_an_old_builder_off(self, module_settings):
+        stored = {'default_agent_internal_mcp_enabled': False}
+        assert module_settings.resolve_builder_defaults(stored, {})[AGENTS] is False
