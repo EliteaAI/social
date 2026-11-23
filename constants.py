@@ -7,9 +7,7 @@ PROMPT_LIB_MODE = 'prompt_lib'
 # Project-scoped settings fields (#6285, #6303): served via project-scoped module_settings
 # API/RPCs, not the legacy global social_users.personalization blob.
 PROJECT_SCOPED_SETTINGS_FIELDS = (
-    'default_internal_mcp_enabled',
-    'default_skill_builder_enabled',
-    'default_project_context_builder_enabled',
+    'default_elitea_builder_enabled',
     'default_ask_user_enabled',
     'default_image_generation_enabled',
     'default_web_search_enabled',
@@ -18,9 +16,7 @@ PROJECT_SCOPED_SETTINGS_FIELDS = (
     'default_pyodide_enabled',
     'default_swarm_enabled',
     'default_lazy_tools_mode_enabled',
-    'default_agent_internal_mcp_enabled',
-    'default_agent_skill_builder_enabled',
-    'default_agent_project_context_builder_enabled',
+    'default_agent_elitea_builder_enabled',
     'default_agent_ask_user_enabled',
     'default_agent_image_generation_enabled',
     'default_agent_web_search_enabled',
