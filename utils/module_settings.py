@@ -21,9 +21,9 @@ UNSET_DEFAULTS = {
     'default_agent_elitea_builder_enabled': True,
 }
 
-# Other modules on by default for Chats and Agents when the user never set them (#7383: the Builder asks through
-# Ask User)
-UNSET_MODULE_DEFAULTS = {'default_ask_user_enabled': True, 'default_agent_ask_user_enabled': True}
+# Other modules on by default when the user never set them (#7383: the Builder asks through Ask User). Off for
+# Agents: an agent with Ask User can't be scheduled or triggered by a webhook.
+UNSET_MODULE_DEFAULTS = {'default_ask_user_enabled': True, 'default_agent_ask_user_enabled': False}
 
 
 def _value(field: str, stored: dict, legacy: dict) -> bool:
@@ -63,10 +63,10 @@ def migrate_module_settings(stored: dict, legacy: dict):
     return {**stored, **resolve_builder_defaults(stored, legacy)}, True
 
 
-# Release R-2.0.9 (#7383): Elitea Builder and Ask User on as default modules for every user, Chats and Agents
+# Release R-2.0.9 (#7383): Elitea Builder on for Chats and Agents, Ask User for Chats only
 ENABLED_DEFAULT_FIELDS = (
     'default_elitea_builder_enabled', 'default_ask_user_enabled',
-    'default_agent_elitea_builder_enabled', 'default_agent_ask_user_enabled',
+    'default_agent_elitea_builder_enabled',
 )
 
 
@@ -86,3 +86,14 @@ def enable_legacy_default_modules(personalization: dict):
     if not off:
         return personalization, False
     return {**personalization, **{field: True for field in off}}, True
+
+
+AGENT_ASK_USER_FIELD = 'default_agent_ask_user_enabled'
+
+
+def disable_agent_ask_user(settings: dict):
+    """Return (settings, changed): the Agents Ask User default off where it is stored on; other keys kept."""
+    settings = settings or {}
+    if settings.get(AGENT_ASK_USER_FIELD) is not True:
+        return settings, False
+    return {**settings, AGENT_ASK_USER_FIELD: False}, True
