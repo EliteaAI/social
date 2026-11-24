@@ -21,9 +21,9 @@ UNSET_DEFAULTS = {
     'default_agent_elitea_builder_enabled': True,
 }
 
-# Other modules on by default for Chats and Agents when the user never set them (#7383: the Builder asks through
-# Ask User)
-UNSET_MODULE_DEFAULTS = {'default_ask_user_enabled': True, 'default_agent_ask_user_enabled': True}
+# Ask User off by default for Chats and Agents when the user never set it: an agent with Ask User can't be
+# scheduled or triggered by a webhook.
+UNSET_MODULE_DEFAULTS = {'default_ask_user_enabled': False, 'default_agent_ask_user_enabled': False}
 
 
 def _value(field: str, stored: dict, legacy: dict) -> bool:
@@ -63,26 +63,32 @@ def migrate_module_settings(stored: dict, legacy: dict):
     return {**stored, **resolve_builder_defaults(stored, legacy)}, True
 
 
-# Release R-2.0.9 (#7383): Elitea Builder and Ask User on as default modules for every user, Chats and Agents
-ENABLED_DEFAULT_FIELDS = (
-    'default_elitea_builder_enabled', 'default_ask_user_enabled',
-    'default_agent_elitea_builder_enabled', 'default_agent_ask_user_enabled',
-)
+# Release R-2.0.9 (#7383): Elitea Builder on and Ask User off as defaults for every user, Chats and Agents
+DEFAULT_MODULE_VALUES = {
+    'default_elitea_builder_enabled': True,
+    'default_agent_elitea_builder_enabled': True,
+    'default_ask_user_enabled': False,
+    'default_agent_ask_user_enabled': False,
+}
 
 
 def enable_default_modules(settings: dict):
-    """Return (settings, changed): ``settings`` with every ENABLED_DEFAULT_FIELDS on; other keys kept."""
+    """Return (settings, changed): ``settings`` with every DEFAULT_MODULE_VALUES set; other keys kept."""
     settings = settings or {}
-    if all(settings.get(field) is True for field in ENABLED_DEFAULT_FIELDS):
+    if all(settings.get(field) is value for field, value in DEFAULT_MODULE_VALUES.items()):
         return settings, False
-    return {**settings, **{field: True for field in ENABLED_DEFAULT_FIELDS}}, True
+    return {**settings, **DEFAULT_MODULE_VALUES}, True
 
 
 def enable_legacy_default_modules(personalization: dict):
-    """Return (personalization, changed): only fields already present are turned on, so a user with no legacy value
-    keeps reading the (on) unset default."""
+    """Return (personalization, changed): only fields already present are set, so a user with no legacy value
+    keeps reading the unset default (the same values)."""
     personalization = personalization or {}
-    off = [field for field in ENABLED_DEFAULT_FIELDS if field in personalization and personalization[field] is not True]
-    if not off:
+    stale = {
+        field: value for field, value in DEFAULT_MODULE_VALUES.items()
+        if field in personalization and personalization[field] is not value
+    }
+    if not stale:
         return personalization, False
-    return {**personalization, **{field: True for field in off}}, True
+    return {**personalization, **stale}, True
+
