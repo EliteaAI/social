@@ -7,7 +7,7 @@ from ..models.pd.users import UserModel
 from ..models.module_settings import UserProjectModuleSettings
 from ..models.users import User
 from ..utils.module_settings import (
-    disable_agent_ask_user, enable_default_modules, enable_legacy_default_modules,
+    enable_default_modules, enable_legacy_default_modules,
     migrate_module_settings, resolve_module_defaults,
 )
 
@@ -101,7 +101,7 @@ class RPC:
 
     @web.rpc("social_enable_builder_default_modules", "enable_builder_default_modules")
     def enable_builder_default_modules(self, project_id: int, dry_run: bool = False) -> int:
-        """R-2.0.9 (#7383): Elitea Builder and Ask User on as Chats and Agents defaults for every stored row of a
+        """R-2.0.9 (#7383): Elitea Builder on and Ask User off as Chats and Agents defaults for every stored row of a
         project, whatever the user had set. Returns rows changed."""
         updated = 0
         with db.get_session(project_id) as session:
@@ -124,39 +124,6 @@ class RPC:
         with db.get_session() as session:
             for user in session.query(User).all():
                 new_personalization, changed = enable_legacy_default_modules(dict(user.personalization or {}))
-                if not changed:
-                    continue
-                updated += 1
-                if not dry_run:
-                    user.personalization = new_personalization
-            if not dry_run:
-                session.commit()
-        return updated
-
-    @web.rpc("social_disable_agent_ask_user_default", "disable_agent_ask_user_default")
-    def disable_agent_ask_user_default(self, project_id: int, dry_run: bool = False) -> int:
-        """Agents Ask User default off in every stored row of a project that has it on: an agent with Ask User can't
-        be scheduled or triggered by a webhook. Returns rows changed."""
-        updated = 0
-        with db.get_session(project_id) as session:
-            for row in session.query(UserProjectModuleSettings).all():
-                new_settings, changed = disable_agent_ask_user(dict(row.module_settings or {}))
-                if not changed:
-                    continue
-                updated += 1
-                if not dry_run:
-                    row.module_settings = new_settings
-            if not dry_run:
-                session.commit()
-        return updated
-
-    @web.rpc("social_disable_legacy_agent_ask_user_default", "disable_legacy_agent_ask_user_default")
-    def disable_legacy_agent_ask_user_default(self, dry_run: bool = False) -> int:
-        """The same for the legacy global personalization. Returns users changed."""
-        updated = 0
-        with db.get_session() as session:
-            for user in session.query(User).all():
-                new_personalization, changed = disable_agent_ask_user(dict(user.personalization or {}))
                 if not changed:
                     continue
                 updated += 1
