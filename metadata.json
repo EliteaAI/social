@@ -1,6 +1,6 @@
 {
   "name": "Carrier Social Plugin",
-  "version": "0.60",
+  "version": "0.61",
   "depends_on": [
     "elitea_core"
   ],
