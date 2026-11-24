@@ -21,9 +21,9 @@ UNSET_DEFAULTS = {
     'default_agent_elitea_builder_enabled': True,
 }
 
-# Ask User off by default for Chats and Agents when the user never set it: an agent with Ask User can't be
+# Ask User on by default for Chats and off for Agents when the user never set it: an agent with Ask User can't be
 # scheduled or triggered by a webhook.
-UNSET_MODULE_DEFAULTS = {'default_ask_user_enabled': False, 'default_agent_ask_user_enabled': False}
+UNSET_MODULE_DEFAULTS = {'default_ask_user_enabled': True, 'default_agent_ask_user_enabled': False}
 
 
 def _value(field: str, stored: dict, legacy: dict) -> bool:
@@ -63,11 +63,12 @@ def migrate_module_settings(stored: dict, legacy: dict):
     return {**stored, **resolve_builder_defaults(stored, legacy)}, True
 
 
-# Release R-2.0.9 (#7383): Elitea Builder on and Ask User off as defaults for every user, Chats and Agents
+# Release R-2.0.9 (#7383): Elitea Builder on for Chats and Agents, Ask User on for Chats and off for Agents, for every
+# user
 DEFAULT_MODULE_VALUES = {
     'default_elitea_builder_enabled': True,
     'default_agent_elitea_builder_enabled': True,
-    'default_ask_user_enabled': False,
+    'default_ask_user_enabled': True,
     'default_agent_ask_user_enabled': False,
 }
 

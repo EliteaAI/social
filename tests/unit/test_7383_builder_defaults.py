@@ -88,14 +88,14 @@ class TestMigrateModuleSettings:
 
 class TestResolveModuleDefaults:
 
-    def test_ask_user_is_off_for_chats_when_never_set(self, module_settings):
-        assert module_settings.resolve_module_defaults({}, {})['default_ask_user_enabled'] is False
+    def test_ask_user_is_on_for_chats_when_never_set(self, module_settings):
+        assert module_settings.resolve_module_defaults({}, {})['default_ask_user_enabled'] is True
 
     def test_ask_user_keeps_what_the_user_chose(self, module_settings):
-        assert module_settings.resolve_module_defaults({'default_ask_user_enabled': True}, {})[
-            'default_ask_user_enabled'] is True
-        assert module_settings.resolve_module_defaults({}, {'default_ask_user_enabled': True})[
-            'default_ask_user_enabled'] is True
+        assert module_settings.resolve_module_defaults({'default_ask_user_enabled': False}, {})[
+            'default_ask_user_enabled'] is False
+        assert module_settings.resolve_module_defaults({}, {'default_ask_user_enabled': False})[
+            'default_ask_user_enabled'] is False
 
     def test_agents_ask_user_is_off_when_never_set(self, module_settings):
         assert module_settings.resolve_module_defaults({}, {})['default_agent_ask_user_enabled'] is False
@@ -115,12 +115,12 @@ class TestResolveModuleDefaults:
 
 
 ENABLED = ('default_elitea_builder_enabled', 'default_agent_elitea_builder_enabled')
-ASK_USER = {'default_ask_user_enabled': False, 'default_agent_ask_user_enabled': False}
+ASK_USER = {'default_ask_user_enabled': True, 'default_agent_ask_user_enabled': False}
 TARGET = {field: True for field in ENABLED} | ASK_USER
 
 
 class TestEnableDefaultModules:
-    """R-2.0.9 admin task: Elitea Builder on and Ask User off as defaults for every user."""
+    """R-2.0.9 admin task: Elitea Builder on, Ask User on for Chats and off for Agents, for every user."""
 
     def test_turns_every_builder_default_on_including_an_explicit_off(self, module_settings):
         stored = {'default_elitea_builder_enabled': False, 'default_planner_enabled': False}
@@ -129,8 +129,9 @@ class TestEnableDefaultModules:
         assert all(new[field] is True for field in ENABLED)
         assert new['default_planner_enabled'] is False
 
-    def test_turns_every_ask_user_default_off_including_an_explicit_on(self, module_settings):
-        stored = {field: True for field in ENABLED} | {field: True for field in ASK_USER}
+    def test_sets_ask_user_chats_on_and_agents_off_whatever_was_stored(self, module_settings):
+        stored = {field: True for field in ENABLED} | {'default_ask_user_enabled': False,
+                                                       'default_agent_ask_user_enabled': True}
         new, changed = module_settings.enable_default_modules(stored)
         assert changed is True and new == TARGET
 
@@ -148,8 +149,8 @@ class TestEnableDefaultModules:
         new, changed = module_settings.enable_legacy_default_modules(legacy)
         assert changed is True and new == {'default_elitea_builder_enabled': True, 'default_planner_enabled': True}
 
-    def test_legacy_turns_a_held_ask_user_default_off(self, module_settings):
-        legacy = {'default_ask_user_enabled': True, 'default_agent_ask_user_enabled': True}
+    def test_legacy_sets_held_ask_user_defaults(self, module_settings):
+        legacy = {'default_ask_user_enabled': False, 'default_agent_ask_user_enabled': True}
         assert module_settings.enable_legacy_default_modules(legacy) == (ASK_USER, True)
         assert module_settings.enable_legacy_default_modules(dict(ASK_USER)) == (ASK_USER, False)
 

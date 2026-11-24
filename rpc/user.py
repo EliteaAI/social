@@ -101,7 +101,7 @@ class RPC:
 
     @web.rpc("social_enable_builder_default_modules", "enable_builder_default_modules")
     def enable_builder_default_modules(self, project_id: int, dry_run: bool = False) -> int:
-        """R-2.0.9 (#7383): Elitea Builder on and Ask User off as Chats and Agents defaults for every stored row of a
+        """R-2.0.9 (#7383): Elitea Builder on, Ask User on for Chats and off for Agents, for every stored row of a
         project, whatever the user had set. Returns rows changed."""
         updated = 0
         with db.get_session(project_id) as session:
